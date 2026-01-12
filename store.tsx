@@ -80,9 +80,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mappedCompanies: Company[] = (companiesRaw || []).map(c => ({
         id: c.id,
         userId: c.user_id,
-        name: c.name,
-        status: c.status as PipelineStatus,
-        targetIES: c.target_ies,
+        name: c.name || 'Sem Nome',
+        status: (c.status?.toUpperCase() || PipelineStatus.PROSPECT) as PipelineStatus,
+        targetIES: c.target_ies || '',
         contacts: c.contacts || [],
         createdAt: c.created_at,
         updatedAt: c.updated_at
@@ -91,40 +91,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const mappedTasks: Task[] = (tasksRaw || []).map(t => ({
         id: t.id,
         userId: t.user_id,
-        title: t.title,
-        description: t.description,
-        status: t.status as TaskStatus,
-        priority: t.priority as TaskPriority,
+        title: t.title || 'Sem Título',
+        description: t.description || '',
+        status: (t.status?.toUpperCase() || TaskStatus.TODO) as TaskStatus,
+        priority: (t.priority?.toUpperCase() || TaskPriority.MEDIUM) as TaskPriority,
         date: t.due_date,
         createdAt: t.created_at
       }));
 
       const mappedEvents: CommercialEvent[] = (eventsRaw || []).map(e => ({
         id: e.id,
-        title: e.title,
-        description: e.description,
+        title: e.title || 'Sem Título',
+        description: e.description || '',
         date: e.event_date,
         type: e.event_type as 'MANUAL' | 'AUTO_TASK',
         taskId: e.task_id,
-        createdBy: e.created_by
+        createdBy: e.created_by || 'Sistema'
       }));
 
       const mappedInventory: InventoryItem[] = (inventoryRaw || []).map(i => ({
         id: i.id,
-        name: i.name,
-        category: i.category,
-        quantity: i.quantity,
-        minQuantity: i.min_quantity,
+        name: i.name || 'Sem Nome',
+        category: i.category || 'Geral',
+        quantity: i.quantity || 0,
+        minQuantity: i.min_quantity || 0,
         lastUpdate: i.last_update
       }));
 
       const mappedSheets: GoogleSheet[] = (sheetsRaw || []).map(s => ({
         id: s.id,
         userId: s.user_id,
-        title: s.title,
-        url: s.url,
-        category: s.category,
-        description: s.description,
+        title: s.title || 'Sem Título',
+        url: s.url || '',
+        category: s.category || 'Geral',
+        description: s.description || '',
         createdAt: s.created_at
       }));
 
@@ -277,7 +277,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Sincronização automática com o calendário se houver data
     if (task.date && taskId) {
       await supabase.from('commercial_events').upsert([{
-        title: `Task: ${task.title}`,
+        title: `Tarefa: ${task.title}`,
         description: task.description,
         event_date: task.date,
         event_type: 'AUTO_TASK',
@@ -285,7 +285,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         created_by: state.user.name
       }], { onConflict: 'task_id' });
     } else if (!task.date && taskId) {
-      // Se a data foi removida, removemos o evento do calendário
       await supabase.from('commercial_events').delete().eq('task_id', taskId);
     }
     await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa sincronizada.`);
@@ -294,8 +293,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTask = async (id: string) => {
     if (!state.user) return;
     await supabase.from('tasks').delete().eq('id', id).eq('user_id', state.user.id);
-    // Remove o evento automático se existir
     await supabase.from('commercial_events').delete().eq('task_id', id);
+    await logAction('DELETE', 'Task', id, `Tarefa removida.`);
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
