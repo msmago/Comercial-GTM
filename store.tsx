@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { createClient } from '@supabase/supabase-js';
 import { 
   Company, Task, CommercialEvent, InventoryItem, AuditLog, User, 
-  PipelineStatus, TaskStatus, GoogleSheet 
+  PipelineStatus, TaskStatus, TaskPriority, GoogleSheet 
 } from './types';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ottzppnrctbrtwsfgidr.supabase.co';
@@ -61,12 +61,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const [
-        { data: companies }, // INDIVIDUAL
-        { data: tasks },     // INDIVIDUAL
-        { data: events },    // COMPARTILHADO (Ranking)
-        { data: inventory }, // COMPARTILHADO
-        { data: sheets },    // COMPARTILHADO (Central de Planilhas)
-        { data: logs }       // INDIVIDUAL
+        { data: companiesRaw },
+        { data: tasksRaw },
+        { data: eventsRaw },
+        { data: inventoryRaw },
+        { data: sheetsRaw },
+        { data: logsRaw }
       ] = await Promise.all([
         supabase.from('companies').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('tasks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
@@ -76,14 +76,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(100)
       ]);
 
+      // MAPEAR DADOS DO BANCO (snake_case) PARA O FRONTEND (camelCase)
+      const mappedCompanies: Company[] = (companiesRaw || []).map(c => ({
+        id: c.id,
+        userId: c.user_id,
+        name: c.name,
+        status: c.status as PipelineStatus,
+        targetIES: c.target_ies,
+        contacts: c.contacts || [],
+        createdAt: c.created_at,
+        updatedAt: c.updated_at
+      }));
+
+      const mappedTasks: Task[] = (tasksRaw || []).map(t => ({
+        id: t.id,
+        userId: t.user_id,
+        title: t.title,
+        description: t.description,
+        status: t.status as TaskStatus,
+        priority: t.priority as TaskPriority,
+        date: t.due_date,
+        createdAt: t.created_at
+      }));
+
+      const mappedEvents: CommercialEvent[] = (eventsRaw || []).map(e => ({
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        date: e.event_date,
+        type: e.event_type as 'MANUAL' | 'AUTO_TASK',
+        taskId: e.task_id,
+        createdBy: e.created_by
+      }));
+
+      const mappedInventory: InventoryItem[] = (inventoryRaw || []).map(i => ({
+        id: i.id,
+        name: i.name,
+        category: i.category,
+        quantity: i.quantity,
+        minQuantity: i.min_quantity,
+        lastUpdate: i.last_update
+      }));
+
+      const mappedSheets: GoogleSheet[] = (sheetsRaw || []).map(s => ({
+        id: s.id,
+        userId: s.user_id,
+        title: s.title,
+        url: s.url,
+        category: s.category,
+        description: s.description,
+        createdAt: s.created_at
+      }));
+
       setState(prev => ({
         ...prev,
-        companies: companies || [],
-        tasks: tasks || [],
-        events: events || [],
-        inventory: inventory || [],
-        sheets: sheets || [],
-        logs: logs || [],
+        companies: mappedCompanies,
+        tasks: mappedTasks,
+        events: mappedEvents,
+        inventory: mappedInventory,
+        sheets: mappedSheets,
+        logs: logsRaw || [],
         loading: false
       }));
     } catch (error) {
@@ -125,7 +177,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'E-mail ou senha incorretos.' };
       }
 
-      const user: User = { id: data.id, name: data.name, email: data.email, role: data.role };
+      const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
       fetchData(user);
@@ -150,7 +202,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (error) throw error;
 
-      const user: User = { id: data.id, name: data.name, email: data.email, role: data.role };
+      const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
       fetchData(user);
@@ -204,7 +256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const upsertTask = async (task: Partial<Task>) => {
     if (!state.user) return;
-    const payload = {
+    const payload: any = {
       user_id: state.user.id,
       title: task.title,
       description: task.description,
@@ -222,6 +274,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       taskId = data.id;
     }
     
+    // Sincronização automática com o calendário se houver data
     if (task.date && taskId) {
       await supabase.from('commercial_events').upsert([{
         title: `Task: ${task.title}`,
@@ -231,6 +284,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         task_id: taskId,
         created_by: state.user.name
       }], { onConflict: 'task_id' });
+    } else if (!task.date && taskId) {
+      // Se a data foi removida, removemos o evento do calendário
+      await supabase.from('commercial_events').delete().eq('task_id', taskId);
     }
     await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa sincronizada.`);
   };
@@ -238,6 +294,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteTask = async (id: string) => {
     if (!state.user) return;
     await supabase.from('tasks').delete().eq('id', id).eq('user_id', state.user.id);
+    // Remove o evento automático se existir
+    await supabase.from('commercial_events').delete().eq('task_id', id);
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
