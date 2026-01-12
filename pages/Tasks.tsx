@@ -35,8 +35,7 @@ const Tasks = () => {
     const formData = new FormData(e.target as HTMLFormElement);
     
     const data = {
-      // Se estamos editando, passamos o ID. Se é novo, deixamos undefined para o store gerar.
-      id: editingTask?.id || undefined,
+      id: editingTask ? editingTask.id : undefined,
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       status: formData.get('status') as TaskStatus,
@@ -79,7 +78,6 @@ const Tasks = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          {/* Filtros de Prioridade */}
           <div className="flex items-center gap-2 bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800">
             <div className="px-2 text-slate-500">
               <Filter size={14} />
@@ -172,7 +170,7 @@ const Tasks = () => {
                     <p className="text-xs text-slate-500 line-clamp-2 mb-3">{task.description}</p>
                     
                     <div className="flex items-center justify-between">
-                      {(task.date) ? (
+                      {task.date ? (
                         <div className="flex items-center gap-1.5 text-[10px] font-medium text-blue-400 bg-blue-500/10 px-2 py-1 rounded-lg w-fit">
                           <CalendarIcon size={12} />
                           Prazo: {new Date(task.date).toLocaleDateString('pt-BR')}
@@ -184,7 +182,6 @@ const Tasks = () => {
                           <button 
                             onClick={() => moveTask(task.id, columns[colIndex - 1].id)}
                             className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors border border-slate-700/50"
-                            title={`Mover para ${columns[colIndex - 1].title}`}
                           >
                             <ChevronLeft size={14} />
                           </button>
@@ -193,7 +190,6 @@ const Tasks = () => {
                           <button 
                             onClick={() => moveTask(task.id, columns[colIndex + 1].id)}
                             className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors border border-slate-700/50"
-                            title={`Mover para ${columns[colIndex + 1].title}`}
                           >
                             <ChevronRight size={14} />
                           </button>
@@ -202,13 +198,6 @@ const Tasks = () => {
                     </div>
                   </div>
                 ))}
-                {colTasks.length === 0 && (
-                  <div className="h-full flex flex-col items-center justify-center p-8 text-center opacity-20">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-                      {priorityFilter === 'ALL' ? 'Coluna Sem Registros' : 'Nenhuma tarefa com esta prioridade'}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           );
@@ -217,81 +206,43 @@ const Tasks = () => {
 
       {showTaskModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-sm">
-          <div className="w-full max-w-lg glass p-8 rounded-3xl animate-in zoom-in-95 duration-200 border-white/5 shadow-2xl">
-            <h3 className="text-2xl font-bold mb-6">
-              {editingTask ? 'Editar Atividade' : 'Nova Atividade'}
-            </h3>
+          <div key={editingTask?.id || 'new-task'} className="w-full max-w-lg glass p-8 rounded-3xl animate-in zoom-in-95 duration-200 border-white/5 shadow-2xl">
+            <h3 className="text-2xl font-bold mb-6">{editingTask ? 'Editar Atividade' : 'Nova Atividade'}</h3>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-slate-400 mb-2">Título da Atividade</label>
-                <input
-                  name="title"
-                  required
-                  defaultValue={editingTask?.title || ''}
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  placeholder="Ex: Reunião estratégica de expansão..."
-                />
+                <input name="title" required defaultValue={editingTask?.title || ''} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Reunião estratégica..." />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">Detalhamento (Opcional)</label>
-                <textarea
-                  name="description"
-                  defaultValue={editingTask?.description || ''}
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none transition-all"
-                  placeholder="Descreva os objetivos desta tarefa..."
-                />
+                <label className="block text-sm font-medium text-slate-400 mb-2">Detalhamento</label>
+                <textarea name="description" defaultValue={editingTask?.description || ''} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Nível de Urgência</label>
-                  <select
-                    name="priority"
-                    defaultValue={editingTask?.priority || TaskPriority.MEDIUM}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                  >
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Urgência</label>
+                  <select name="priority" defaultValue={editingTask?.priority || TaskPriority.MEDIUM} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl">
                     <option value={TaskPriority.LOW}>Baixa</option>
                     <option value={TaskPriority.MEDIUM}>Média</option>
                     <option value={TaskPriority.HIGH}>Alta</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-2">Estágio Inicial</label>
-                  <select
-                    name="status"
-                    defaultValue={editingTask?.status || TaskStatus.TODO}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-                  >
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Status</label>
+                  <select name="status" defaultValue={editingTask?.status || TaskStatus.TODO} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl">
                     <option value={TaskStatus.BACKLOG}>Backlog</option>
                     <option value={TaskStatus.TODO}>A Fazer</option>
-                    <option value={TaskStatus.IN_PROGRESS}>Em Execução</option>
+                    <option value={TaskStatus.IN_PROGRESS}>Execução</option>
                     <option value={TaskStatus.DONE}>Concluído</option>
                   </select>
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">Data de Vencimento</label>
-                <input
-                  type="date"
-                  name="date"
-                  defaultValue={editingTask?.date || ''}
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                />
-                <p className="text-[10px] text-blue-400 mt-2 font-bold uppercase tracking-tighter">* Definir data gera automaticamente um evento no calendário comercial.</p>
+                <label className="block text-sm font-medium text-slate-400 mb-2">Data Limite</label>
+                <input type="date" name="date" defaultValue={editingTask?.date || ''} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl" />
               </div>
               <div className="flex gap-3 mt-8">
-                <button 
-                  type="button" 
-                  onClick={() => setShowTaskModal(false)}
-                  className="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-800 rounded-xl transition-all"
-                >
-                  Descartar
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-600/20"
-                >
-                  Salvar Atividade
-                </button>
+                <button type="button" onClick={() => setShowTaskModal(false)} className="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-800 rounded-xl">Cancelar</button>
+                <button type="submit" className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20">Confirmar</button>
               </div>
             </form>
           </div>

@@ -72,11 +72,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('tasks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('commercial_events').select('*').order('event_date', { ascending: true }),
         supabase.from('inventory').select('*').order('name', { ascending: true }),
-        supabase.from('google_sheets').select('*').order('created_at', { ascending: false }),
+        supabase.from('google_sheets').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(100)
       ]);
 
-      // MAPEAMENTO ROBUSTO: Garante que enums sejam válidos e em CAIXA ALTA
       const mappedCompanies: Company[] = (companiesRaw || []).map(c => ({
         id: c.id,
         userId: c.user_id,
@@ -155,26 +154,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [fetchData]);
 
-  useEffect(() => {
-    if (!state.user) return;
-
-    const channel = supabase.channel('gtm_pro_changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData(state.user))
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchData, state.user]);
-
   const login = async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .eq('password', password)
-        .single();
-
+      const { data, error } = await supabase.from('users').select('*').eq('email', email).eq('password', password).single();
       if (error || !data) return { success: false, message: 'E-mail ou senha incorretos.' };
-
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
@@ -189,13 +172,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { data: existing } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
       if (existing) return { success: false, message: 'E-mail já cadastrado.' };
-
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{ name, email, password, role: 'USER' }])
-        .select()
-        .single();
-
+      const { data, error } = await supabase.from('users').insert([{ name, email, password, role: 'USER' }]).select().single();
       if (error) throw error;
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
@@ -224,51 +201,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }]);
   };
 
-  const upsertCompany = async (company: Partial<Company>) => {
+  const upsertTask = async (task: Partial<Task>) => {
     if (!state.user) return;
     const payload = {
       user_id: state.user.id,
-      name: company.name,
-      status: company.status,
-      target_ies: company.targetIES,
-      contacts: company.contacts,
-      updated_at: new Date().toISOString()
-    };
-    
-    if (company.id) {
-      await supabase.from('companies').update(payload).eq('id', company.id);
-    } else {
-      await supabase.from('companies').insert([{ ...payload, created_at: new Date().toISOString() }]);
-    }
-    await fetchData(state.user); // REFRESH IMEDIATO
-    await logAction(company.id ? 'UPDATE' : 'CREATE', 'Company', company.id || 'new', `Empresa ${company.name} salva.`);
-  };
-
-  const deleteCompany = async (id: string) => {
-    if (!state.user) return;
-    await supabase.from('companies').delete().eq('id', id);
-    await fetchData(state.user); // REFRESH IMEDIATO
-    await logAction('DELETE', 'Company', id, `Empresa removida.`);
-  };
-
-  const upsertTask = async (task: Partial<Task>) => {
-    if (!state.user) return;
-    const payload: any = {
-      user_id: state.user.id,
       title: task.title,
       description: task.description,
-      status: task.status || TaskStatus.TODO,
-      priority: task.priority || TaskPriority.MEDIUM,
+      status: task.status,
+      priority: task.priority,
       due_date: task.date || null
     };
     
     let taskId = task.id;
-    if (task.id) {
-      await supabase.from('tasks').update(payload).eq('id', task.id);
+    if (taskId) {
+      await supabase.from('tasks').update(payload).eq('id', taskId);
     } else {
-      const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
-      if (error) throw error;
-      taskId = data.id;
+      const { data } = await supabase.from('tasks').insert([payload]).select().single();
+      taskId = data?.id;
     }
     
     if (task.date && taskId) {
@@ -280,20 +229,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         task_id: taskId,
         created_by: state.user.name
       }], { onConflict: 'task_id' });
-    } else if (!task.date && taskId) {
-      await supabase.from('commercial_events').delete().eq('task_id', taskId);
     }
-    
-    await fetchData(state.user); // REFRESH IMEDIATO: Garante que a tarefa apareça no Kanban
-    await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa ${task.title} sincronizada.`);
+    await fetchData(state.user);
+    await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa persistida.`);
   };
 
   const deleteTask = async (id: string) => {
     if (!state.user) return;
     await supabase.from('tasks').delete().eq('id', id);
     await supabase.from('commercial_events').delete().eq('task_id', id);
-    await fetchData(state.user); // REFRESH IMEDIATO
-    await logAction('DELETE', 'Task', id, `Tarefa removida.`);
+    await fetchData(state.user);
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
@@ -305,12 +250,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: sheet.category,
       description: sheet.description
     };
+    
     if (sheet.id) {
       await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
     } else {
       await supabase.from('google_sheets').insert([payload]);
     }
     await fetchData(state.user);
+    await logAction(sheet.id ? 'UPDATE' : 'CREATE', 'GoogleSheet', sheet.id || 'new', `Planilha ${sheet.title} salva.`);
   };
 
   const deleteSheet = async (id: string) => {
@@ -319,20 +266,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await fetchData(state.user);
   };
 
+  const upsertCompany = async (company: Partial<Company>) => {
+    if (!state.user) return;
+    const payload = { user_id: state.user.id, name: company.name, status: company.status, target_ies: company.targetIES, contacts: company.contacts, updated_at: new Date().toISOString() };
+    if (company.id) await supabase.from('companies').update(payload).eq('id', company.id);
+    else await supabase.from('companies').insert([{ ...payload, created_at: new Date().toISOString() }]);
+    await fetchData(state.user);
+  };
+
+  const deleteCompany = async (id: string) => {
+    if (!state.user) return;
+    await supabase.from('companies').delete().eq('id', id);
+    await fetchData(state.user);
+  };
+
   const upsertEvent = async (event: Partial<CommercialEvent>) => {
     if (!state.user) return;
-    const payload = {
-      title: event.title,
-      description: event.description,
-      event_date: event.date,
-      event_type: event.type || 'MANUAL',
-      created_by: state.user.name
-    };
-    if (event.id) {
-      await supabase.from('commercial_events').update(payload).eq('id', event.id);
-    } else {
-      await supabase.from('commercial_events').insert([payload]);
-    }
+    const payload = { title: event.title, description: event.description, event_date: event.date, event_type: event.type || 'MANUAL', created_by: state.user.name };
+    if (event.id) await supabase.from('commercial_events').update(payload).eq('id', event.id);
+    else await supabase.from('commercial_events').insert([payload]);
     await fetchData(state.user);
   };
 
@@ -342,18 +294,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const upsertInventory = async (item: Partial<InventoryItem>) => {
-    const payload = {
-      name: item.name,
-      category: item.category,
-      quantity: item.quantity,
-      min_quantity: item.minQuantity,
-      last_update: new Date().toISOString()
-    };
-    if (item.id) {
-      await supabase.from('inventory').update(payload).eq('id', item.id);
-    } else {
-      await supabase.from('inventory').insert([payload]);
-    }
+    const payload = { name: item.name, category: item.category, quantity: item.quantity, min_quantity: item.minQuantity, last_update: new Date().toISOString() };
+    if (item.id) await supabase.from('inventory').update(payload).eq('id', item.id);
+    else await supabase.from('inventory').insert([payload]);
     if (state.user) await fetchData(state.user);
   };
 
@@ -364,21 +307,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{ 
-      ...state, 
-      login, 
-      register,
-      logout, 
-      upsertCompany, 
-      deleteCompany, 
-      upsertTask, 
-      deleteTask,
-      upsertEvent,
-      deleteEvent,
-      upsertInventory,
-      deleteInventory,
-      upsertSheet,
-      deleteSheet,
-      logAction
+      ...state, login, register, logout, upsertCompany, deleteCompany, 
+      upsertTask, deleteTask, upsertEvent, deleteEvent, upsertInventory, 
+      deleteInventory, upsertSheet, deleteSheet, logAction
     }}>
       {children}
     </AppContext.Provider>
