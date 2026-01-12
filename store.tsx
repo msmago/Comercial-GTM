@@ -26,15 +26,15 @@ interface AppContextType extends AppState {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
-  upsertCompany: (company: Partial<Company>) => Promise<void>;
+  upsertCompany: (company: Partial<Company>) => Promise<{ success: boolean; error?: string }>;
   deleteCompany: (id: string) => Promise<void>;
-  upsertTask: (task: Partial<Task>) => Promise<void>;
+  upsertTask: (task: Partial<Task>) => Promise<{ success: boolean; error?: string }>;
   deleteTask: (id: string) => Promise<void>;
   upsertEvent: (event: Partial<CommercialEvent>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   upsertInventory: (item: Partial<InventoryItem>) => Promise<void>;
   deleteInventory: (id: string) => Promise<void>;
-  upsertSheet: (sheet: Partial<GoogleSheet>) => Promise<void>;
+  upsertSheet: (sheet: Partial<GoogleSheet>) => Promise<{ success: boolean; error?: string }>;
   deleteSheet: (id: string) => Promise<void>;
   logAction: (action: string, entity: string, entityId: string, details: string) => Promise<void>;
 }
@@ -76,42 +76,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(50)
       ]);
 
-      const mappedCompanies: Company[] = (resCompanies.data || []).map(c => ({
-        id: c.id,
-        userId: c.user_id,
-        name: c.name || 'Sem Nome',
-        status: (c.status?.toUpperCase() || PipelineStatus.PROSPECT) as PipelineStatus,
-        targetIES: c.target_ies || '',
-        contacts: c.contacts || [],
-        createdAt: c.created_at,
-        updatedAt: c.updated_at
-      }));
-
-      const mappedTasks: Task[] = (resTasks.data || []).map(t => ({
-        id: t.id,
-        userId: t.user_id,
-        title: t.title || 'Sem Título',
-        description: t.description || '',
-        status: (t.status?.toUpperCase() || TaskStatus.TODO) as TaskStatus,
-        priority: (t.priority?.toUpperCase() || TaskPriority.MEDIUM) as TaskPriority,
-        date: t.due_date,
-        createdAt: t.created_at
-      }));
-
-      const mappedSheets: GoogleSheet[] = (resSheets.data || []).map(s => ({
-        id: s.id,
-        userId: s.user_id,
-        title: s.title || 'Sem Título',
-        url: s.url || '',
-        category: s.category || 'Geral',
-        description: s.description || '',
-        createdAt: s.created_at
-      }));
-
       setState(prev => ({
         ...prev,
-        companies: mappedCompanies,
-        tasks: mappedTasks,
+        companies: (resCompanies.data || []).map(c => ({
+          id: c.id,
+          userId: c.user_id,
+          name: c.name || 'Sem Nome',
+          status: (c.status?.toUpperCase() || PipelineStatus.PROSPECT) as PipelineStatus,
+          targetIES: c.target_ies || '',
+          contacts: c.contacts || [],
+          createdAt: c.created_at,
+          updatedAt: c.updated_at
+        })),
+        tasks: (resTasks.data || []).map(t => ({
+          id: t.id,
+          userId: t.user_id,
+          title: t.title || 'Sem Título',
+          description: t.description || '',
+          status: (t.status?.toUpperCase() || TaskStatus.TODO) as TaskStatus,
+          priority: (t.priority?.toUpperCase() || TaskPriority.MEDIUM) as TaskPriority,
+          date: t.due_date,
+          createdAt: t.created_at
+        })),
         events: (resEvents.data || []).map(e => ({
           id: e.id,
           title: e.title,
@@ -129,7 +115,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           minQuantity: i.min_quantity,
           lastUpdate: i.last_update
         })),
-        sheets: mappedSheets,
+        sheets: (resSheets.data || []).map(s => ({
+          id: s.id,
+          userId: s.user_id,
+          title: s.title || 'Sem Título',
+          url: s.url || '',
+          category: s.category || 'Geral',
+          description: s.description || '',
+          createdAt: s.created_at
+        })),
         logs: resLogs.data || [],
         loading: false
       }));
@@ -151,8 +145,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [fetchData]);
 
   const upsertTask = async (task: Partial<Task>) => {
-    if (!state.user) return;
-    const payload: any = {
+    if (!state.user) return { success: false, error: "Usuário não autenticado" };
+    
+    const payload = {
       user_id: state.user.id,
       title: task.title,
       description: task.description,
@@ -161,17 +156,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       due_date: task.date || null
     };
     
+    console.log("DEBUG [upsertTask] - Payload Enviado:");
+    console.table(payload);
+
     try {
-      let taskId = task.id;
-      if (taskId) {
-        const { error } = await supabase.from('tasks').update(payload).eq('id', taskId);
-        if (error) throw error;
+      let result;
+      if (task.id) {
+        result = await supabase.from('tasks').update(payload).eq('id', task.id);
       } else {
-        const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
-        if (error) throw error;
-        taskId = data.id;
+        result = await supabase.from('tasks').insert([payload]).select().single();
       }
 
+      if (result.error) {
+        console.error("DEBUG [upsertTask] - Erro Supabase:", result.error);
+        return { success: false, error: result.error.message };
+      }
+
+      const taskId = task.id || result.data?.id;
       if (task.date && taskId) {
         await supabase.from('commercial_events').upsert([{
           title: `Tarefa: ${task.title}`,
@@ -182,14 +183,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           created_by: state.user.name
         }], { onConflict: 'task_id' });
       }
+
       await fetchData(state.user);
-    } catch (e) {
-      console.error("Erro ao salvar tarefa:", e);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
-    if (!state.user) return;
+    if (!state.user) return { success: false, error: "Usuário não autenticado" };
+    
     const payload = {
       user_id: state.user.id,
       title: sheet.title,
@@ -198,17 +202,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: sheet.description || ''
     };
     
+    console.log("DEBUG [upsertSheet] - Payload Enviado:");
+    console.table(payload);
+
     try {
+      let result;
       if (sheet.id) {
-        const { error } = await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
-        if (error) throw error;
+        result = await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
       } else {
-        const { error } = await supabase.from('google_sheets').insert([payload]);
-        if (error) throw error;
+        result = await supabase.from('google_sheets').insert([payload]);
       }
+
+      if (result.error) {
+        console.error("DEBUG [upsertSheet] - Erro Supabase:", result.error);
+        return { success: false, error: result.error.message };
+      }
+
       await fetchData(state.user);
-    } catch (e) {
-      console.error("Erro ao salvar planilha:", e);
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message };
     }
   };
 
@@ -249,11 +262,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const upsertCompany = async (c: Partial<Company>) => {
-    if (!state.user) return;
+    if (!state.user) return { success: false, error: "Sem usuário" };
     const p = { user_id: state.user.id, name: c.name, status: c.status, target_ies: c.targetIES, contacts: c.contacts };
     if (c.id) await supabase.from('companies').update(p).eq('id', c.id);
     else await supabase.from('companies').insert([p]);
     await fetchData(state.user);
+    return { success: true };
   };
 
   const deleteCompany = async (id: string) => {

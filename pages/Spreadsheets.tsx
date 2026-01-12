@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useStore } from '../store';
 import { GoogleSheet } from '../types';
 import { 
-  FileSpreadsheet, Plus, Search, Trash2, ExternalLink, Eye, Edit2, X
+  FileSpreadsheet, Plus, Search, Trash2, ExternalLink, Eye, Edit2, X, Loader2
 } from 'lucide-react';
 
 const Spreadsheets = () => {
@@ -12,23 +12,35 @@ const Spreadsheets = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingSheet, setEditingSheet] = useState<GoogleSheet | null>(null);
   const [selectedSheet, setSelectedSheet] = useState<GoogleSheet | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = sheets.filter(s => 
     s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
     s.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     const formData = new FormData(e.target as HTMLFormElement);
-    upsertSheet({
+    const result = await upsertSheet({
       id: editingSheet?.id,
       title: formData.get('title') as string,
       url: formData.get('url') as string,
       category: formData.get('category') as string,
       description: formData.get('description') as string,
     });
-    setShowModal(false);
+    
+    setIsSubmitting(false);
+
+    if (result.success) {
+      setShowModal(false);
+      setEditingSheet(null);
+    } else {
+      alert(`ERRO AO SALVAR PLANILHA:\n${result.error || 'Erro desconhecido'}`);
+    }
   };
 
   if (selectedSheet) {
@@ -93,7 +105,9 @@ const Spreadsheets = () => {
               <textarea name="description" placeholder="Descrição" defaultValue={editingSheet?.description || ''} className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl h-24 resize-none" />
               <div className="flex gap-3 mt-8">
                 <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-800 rounded-xl">Cancelar</button>
-                <button type="submit" className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl">Salvar</button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl flex items-center justify-center">
+                  {isSubmitting ? <Loader2 className="animate-spin" size={20} /> : 'Salvar'}
+                </button>
               </div>
             </form>
           </div>
