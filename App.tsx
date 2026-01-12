@@ -111,11 +111,11 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           <div className="flex items-center gap-3">
             <a 
-              href="https://funepi.educasystem.com.br/" 
+              href="https://funepi.educasystem.com.br/adm/" 
               target="_blank" 
               rel="noopener noreferrer"
               className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all shadow-lg shadow-emerald-500/10"
-              title="Ir para Funepi Educasystem"
+              title="Acesso Administrativo Funepi"
             >
               <GraduationCap size={18} />
             </a>
