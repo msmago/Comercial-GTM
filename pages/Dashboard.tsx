@@ -220,15 +220,8 @@ const Dashboard = () => {
 
         {/* RANKING GTM - THE PODIUM */}
         <div className="glass p-10 rounded-[48px] border-white/5 shadow-[0_32px_64px_rgba(0,0,0,0.5)] bg-slate-950/40 relative flex flex-col">
-          <div className="absolute top-8 right-8">
-             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
-                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Tempo Real</span>
-             </div>
-          </div>
-
           <div className="mb-10">
-            <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter mb-1">Top Perfomers</h3>
+            <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter mb-1">Ranking GTM</h3>
             <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Pilar de Prospecção GTM</p>
           </div>
           
