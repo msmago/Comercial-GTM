@@ -16,26 +16,33 @@ import {
   User as UserIcon,
   Medal,
   BarChart3,
-  Activity
+  Activity,
+  Zap,
+  Target,
+  ChevronRight
 } from 'lucide-react';
 
-const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }: any) => (
-  <div className="glass p-6 rounded-2xl relative overflow-hidden group border-white/5 shadow-lg">
-    <div className={`absolute -right-6 -top-6 w-24 h-24 rounded-full ${color} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
-    <div className="flex items-start justify-between">
-      <div>
-        <p className="text-slate-400 text-[10px] font-bold mb-1 uppercase tracking-[0.1em]">{title}</p>
-        <h3 className="text-3xl font-black tracking-tight">{value}</h3>
+const StatCard = ({ title, value, icon: Icon, color, trend, trendValue, subtitle }: any) => (
+  <div className="glass p-7 rounded-[32px] relative overflow-hidden group border-white/5 shadow-2xl transition-all hover:translate-y-[-4px]">
+    <div className={`absolute -right-8 -top-8 w-32 h-32 rounded-full ${color} opacity-[0.03] group-hover:opacity-[0.08] blur-2xl transition-all duration-500`}></div>
+    
+    <div className="relative z-10">
+      <div className="flex items-center justify-between mb-6">
+        <div className={`p-3.5 rounded-2xl ${color.replace('bg-', 'text-')} bg-slate-900/80 border border-white/5 shadow-inner`}>
+          <Icon size={22} />
+        </div>
         {trend && (
-          <div className="flex items-center gap-1 mt-2">
-            {trend === 'up' ? <ArrowUpRight size={14} className="text-emerald-400" /> : <ArrowDownRight size={14} className="text-rose-400" />}
-            <span className={`text-xs font-bold ${trend === 'up' ? 'text-emerald-400' : 'text-rose-400'}`}>{trendValue}</span>
-            <span className="text-[10px] text-slate-500 font-medium ml-1">vs mês anterior</span>
+          <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+            {trend === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {trendValue}
           </div>
         )}
       </div>
-      <div className={`p-3 rounded-xl ${color.replace('bg-', 'text-').replace(' opacity-5', '')} bg-slate-800/50 border border-slate-700/50 shadow-inner`}>
-        <Icon size={24} />
+
+      <div>
+        <h3 className="text-4xl font-black tracking-tighter text-white mb-1">{value}</h3>
+        <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">{title}</p>
+        <p className="text-slate-600 text-[9px] mt-2 font-medium">{subtitle}</p>
       </div>
     </div>
   </div>
@@ -43,6 +50,13 @@ const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }: any) =
 
 const Dashboard = () => {
   const { companies, inventory, events, tasks, user: currentUser } = useStore();
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  };
 
   // --- CÁLCULO DE PERFORMANCE GTM REAL ---
   const totalTasks = tasks.length;
@@ -59,11 +73,11 @@ const Dashboard = () => {
 
   // --- DADOS DO PIPELINE ---
   const pipelineStats = [
-    { name: 'Prospecção', count: companies.filter(c => c.status === PipelineStatus.PROSPECT).length, color: '#64748b' },
-    { name: 'Contatado', count: companies.filter(c => c.status === PipelineStatus.CONTACTED).length, color: '#3b82f6' },
-    { name: 'Negociação', count: companies.filter(c => c.status === PipelineStatus.NEGOTIATION).length, color: '#a855f7' },
-    { name: 'Parceiro', count: companies.filter(c => c.status === PipelineStatus.PARTNER).length, color: '#10b981' },
-    { name: 'Churn', count: companies.filter(c => c.status === PipelineStatus.CHURN).length, color: '#f43f5e' },
+    { name: 'PROSPECÇÃO', count: companies.filter(c => c.status === PipelineStatus.PROSPECT).length, color: '#475569' },
+    { name: 'CONTATADO', count: companies.filter(c => c.status === PipelineStatus.CONTACTED).length, color: '#3b82f6' },
+    { name: 'NEGOCIAÇÃO', count: companies.filter(c => c.status === PipelineStatus.NEGOTIATION).length, color: '#8b5cf6' },
+    { name: 'PARCEIRO', count: companies.filter(c => c.status === PipelineStatus.PARTNER).length, color: '#10b981' },
+    { name: 'CHURN', count: companies.filter(c => c.status === PipelineStatus.CHURN).length, color: '#f43f5e' },
   ];
 
   const lowStock = inventory.filter(i => i.quantity < i.minQuantity);
@@ -85,58 +99,118 @@ const Dashboard = () => {
 
   const maxPoints = rankingData[0]?.count || 1;
 
-  const getRankIcon = (index: number) => {
-    switch(index) {
-      case 0: return <Medal className="text-yellow-400 filter drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]" size={26} />;
-      case 1: return <Medal className="text-slate-300 filter drop-shadow-[0_0_10px_rgba(203,213,225,0.4)]" size={24} />;
-      case 2: return <Medal className="text-amber-600 filter drop-shadow-[0_0_10px_rgba(180,83,9,0.4)]" size={22} />;
-      default: return <span className="text-slate-600 font-black text-xs w-6 text-center">{index + 1}º</span>;
-    }
-  };
-
   return (
-    <div className="space-y-8 pb-10">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Empresas no Funil" value={totalCompanies} icon={Building2} color="bg-blue-600" trend="up" trendValue="+12%" />
-        <StatCard title="Eventos Agendados" value={totalEvents} icon={CalendarClock} color="bg-indigo-600" trend="up" trendValue="+5%" />
-        <StatCard title="Performance GTM" value={`${performanceGTM}%`} icon={TrendingUp} color="bg-emerald-600" trend={Number(performanceGTM) > 20 ? 'up' : 'down'} trendValue={Number(performanceGTM) > 20 ? '+4.2%' : '-1.5%'} />
-        <StatCard title="Risco Logístico" value={lowStock.length} icon={AlertTriangle} color="bg-rose-600" />
+    <div className="space-y-10 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* GREETING & CONTEXT */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase tracking-widest border border-blue-500/20">Acesso Premium</span>
+            <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
+          </div>
+          <h1 className="text-5xl font-black tracking-tighter text-white italic">
+            {getGreeting()}, <span className="text-blue-500 not-italic">{currentUser?.name.split(' ')[0]}</span>.
+          </h1>
+          <p className="text-slate-500 font-medium mt-1">Sua visão geral de performance e logística comercial.</p>
+        </div>
+        <div className="flex items-center gap-4 bg-slate-900/40 p-2 rounded-2xl border border-white/5">
+          <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl">
+            <Zap size={20} />
+          </div>
+          <div className="pr-6">
+            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Status da Rede</p>
+            <p className="text-xs font-bold text-slate-200">Sincronização Ativa</p>
+          </div>
+        </div>
       </div>
 
+      {/* PRIMARY STATS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard 
+          title="Empresas no Funil" 
+          value={totalCompanies} 
+          icon={Building2} 
+          color="bg-blue-600" 
+          trend="up" 
+          trendValue="+12.4%" 
+          subtitle="Captação ativa de IES"
+        />
+        <StatCard 
+          title="Eventos Agendados" 
+          value={totalEvents} 
+          icon={CalendarClock} 
+          color="bg-indigo-600" 
+          trend="up" 
+          trendValue="+5.1%" 
+          subtitle="Ações comerciais de campo"
+        />
+        <StatCard 
+          title="Performance Global" 
+          value={`${performanceGTM}%`} 
+          icon={Target} 
+          color="bg-emerald-600" 
+          trend={Number(performanceGTM) > 20 ? 'up' : 'down'} 
+          trendValue={Number(performanceGTM) > 20 ? 'Alta' : 'Baixa'} 
+          subtitle="Eficiência de conversão"
+        />
+        <StatCard 
+          title="Risco Logístico" 
+          value={lowStock.length} 
+          icon={AlertTriangle} 
+          color="bg-rose-600" 
+          subtitle="Itens abaixo do mínimo"
+        />
+      </div>
+
+      {/* CHARTS & LEADERBOARD AREA */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        <div className="xl:col-span-2 glass p-8 rounded-[32px] border-white/5 shadow-2xl">
-          <div className="flex items-center justify-between mb-10">
-            <h3 className="text-xl font-bold flex items-center gap-3">
-              <span className="w-2 h-6 bg-blue-500 rounded-full shadow-[0_0_12px_rgba(59,130,246,0.5)]"></span>
-              Distribuição do Pipeline (CRM)
-            </h3>
-            <div className="flex items-center gap-2 px-4 py-2 bg-slate-900/50 rounded-full border border-slate-800">
-              <BarChart3 size={14} className="text-blue-400" />
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saúde Comercial</span>
-            </div>
+        
+        {/* PIPELINE HEALTH CHART */}
+        <div className="xl:col-span-2 glass p-10 rounded-[40px] border-white/5 shadow-2xl bg-slate-900/20 relative group">
+          <div className="absolute top-0 right-0 p-8 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button className="flex items-center gap-2 text-[10px] font-black text-blue-400 uppercase tracking-widest">
+              Ver CRM Completo <ChevronRight size={14} />
+            </button>
           </div>
-          <div className="h-[350px]">
+          
+          <div className="mb-12">
+            <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter flex items-center gap-3">
+              <span className="w-2 h-8 bg-blue-500 rounded-full"></span>
+              Saúde do Pipeline
+            </h3>
+            <p className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-widest">Distribuição por estágio comercial</p>
+          </div>
+
+          <div className="h-[380px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={pipelineStats} layout="vertical" margin={{ left: 20, right: 30 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
+              <BarChart data={pipelineStats} layout="vertical" margin={{ left: 30, right: 60, top: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} opacity={0.3} />
                 <XAxis type="number" hide />
                 <YAxis 
                   dataKey="name" 
                   type="category" 
                   axisLine={false} 
                   tickLine={false} 
-                  tick={{fill: '#94a3b8', fontSize: 11, fontWeight: 800}}
-                  width={100}
+                  tick={{fill: '#475569', fontSize: 10, fontWeight: 900, letterSpacing: '0.1em'}}
+                  width={110}
                 />
                 <Tooltip 
-                  cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                  contentStyle={{ backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '16px' }}
-                  itemStyle={{ color: '#f8fafc', fontWeight: 700 }}
-                  labelStyle={{ color: '#94a3b8', marginBottom: '8px', fontWeight: 800, textTransform: 'uppercase', fontSize: '10px' }}
+                  cursor={{fill: 'rgba(255,255,255,0.03)', radius: 12}}
+                  contentStyle={{ 
+                    backgroundColor: '#020617', 
+                    border: '1px solid rgba(255,255,255,0.08)', 
+                    borderRadius: '20px',
+                    padding: '12px 16px',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.4)'
+                  }}
+                  itemStyle={{ color: '#fff', fontWeight: 800, fontSize: '12px' }}
+                  labelStyle={{ color: '#64748b', marginBottom: '4px', fontWeight: 900, textTransform: 'uppercase', fontSize: '9px', letterSpacing: '0.1em' }}
                 />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={40}>
+                <Bar dataKey="count" radius={[0, 12, 12, 0]} barSize={44}>
                   {pipelineStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                   ))}
                 </Bar>
               </BarChart>
@@ -144,55 +218,49 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* RANKING GTM REFORMULADO */}
-        <div className="glass p-8 rounded-[40px] border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6">
-             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-pulse">
-                <Activity size={10} className="text-emerald-500" />
-                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">LIVE SYNC</span>
+        {/* RANKING GTM - THE PODIUM */}
+        <div className="glass p-10 rounded-[48px] border-white/5 shadow-[0_32px_64px_rgba(0,0,0,0.5)] bg-slate-950/40 relative flex flex-col">
+          <div className="absolute top-8 right-8">
+             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
+                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Tempo Real</span>
              </div>
           </div>
 
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20 shadow-inner">
-              <Trophy className="text-yellow-500" size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Ranking GTM</h3>
-              <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Pilar de Prospecção Ativa</p>
-            </div>
+          <div className="mb-10">
+            <h3 className="text-2xl font-black italic text-white uppercase tracking-tighter mb-1">Top Perfomers</h3>
+            <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Pilar de Prospecção GTM</p>
           </div>
           
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 space-y-4">
             {rankingData.length > 0 ? rankingData.map((user, index) => {
               const isMe = currentUser?.name === user.name;
               const progressWidth = (user.count / maxPoints) * 100;
               
               return (
-                <div key={user.name} className={`group relative p-5 rounded-[24px] border transition-all duration-300 ${isMe ? 'bg-blue-600/10 border-blue-500/40 shadow-[0_0_20px_rgba(37,99,235,0.1)]' : 'bg-slate-900/40 border-slate-800/60 hover:border-slate-700'}`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0">
-                        {getRankIcon(index)}
+                <div key={user.name} className={`relative p-5 rounded-[28px] border transition-all duration-500 ${isMe ? 'bg-blue-600/10 border-blue-500/30 ring-1 ring-blue-500/20' : 'bg-slate-900/40 border-slate-800/60 hover:bg-slate-900/60'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs ${index === 0 ? 'bg-yellow-500/20 text-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.2)]' : 'bg-slate-800 text-slate-500'}`}>
+                        {index === 0 ? <Medal size={20} /> : index + 1}
                       </div>
                       <div className="flex flex-col">
                         <span className={`text-sm font-black uppercase tracking-tight ${isMe ? 'text-blue-400' : 'text-slate-200'}`}>
-                          {user.name} {isMe && <span className="text-[9px] lowercase font-normal opacity-50 ml-1">(você)</span>}
+                          {user.name}
                         </span>
+                        <span className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">Consultor Elite</span>
                       </div>
                     </div>
                     <div className="text-right">
-                       <span className={`text-xl font-black tracking-tighter ${index === 0 ? 'text-yellow-500' : 'text-slate-100'}`}>
+                       <span className="text-2xl font-black text-white tracking-tighter">
                          {user.count}
                        </span>
-                       <span className="text-[8px] text-slate-600 block font-black uppercase tracking-widest">Eventos</span>
                     </div>
                   </div>
 
-                  {/* Barra de Progresso do Competidor */}
-                  <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                  <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
                     <div 
-                      className={`h-full rounded-full transition-all duration-1000 ease-out ${index === 0 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isMe ? 'bg-blue-500' : 'bg-slate-700'}`}
+                      className={`h-full rounded-full transition-all duration-1000 ease-out ${index === 0 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : isMe ? 'bg-blue-500' : 'bg-slate-700'}`}
                       style={{ width: `${progressWidth}%` }}
                     />
                   </div>
@@ -200,34 +268,41 @@ const Dashboard = () => {
               );
             }) : (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-10 opacity-20">
-                <UserIcon size={64} className="mb-6 text-slate-700" />
-                <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Aguardando registros...</p>
+                <UserIcon size={48} className="mb-4 text-slate-700" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Inicie os agendamentos</p>
               </div>
             )}
           </div>
           
-          <div className="mt-8 pt-6 border-t border-slate-800/60">
-             <p className="text-[9px] text-center text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
-               Cada agendamento no calendário soma <span className="text-emerald-500">+1 PONTO</span>.<br/>
-               Transparência total na performance do time.
-             </p>
+          <div className="mt-8 px-2">
+             <div className="flex items-center gap-4 p-4 bg-slate-900/50 rounded-2xl border border-white/5">
+                <Trophy className="text-yellow-500/50" size={18} />
+                <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase tracking-wide">
+                  O ranking é atualizado instantaneamente conforme o time opera o calendário.
+                </p>
+             </div>
           </div>
         </div>
       </div>
 
+      {/* OPERATIONAL ALERT SECTION */}
       {lowStock.length > 0 && (
-        <div className="bg-rose-500/5 border border-rose-500/20 p-8 rounded-[32px] flex items-center gap-8 shadow-xl">
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/20 flex items-center justify-center text-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
-            <AlertTriangle size={32} />
+        <div className="bg-rose-500/5 border border-rose-500/10 p-10 rounded-[40px] flex flex-col md:flex-row items-center gap-10 shadow-2xl relative overflow-hidden group">
+          <div className="absolute -left-20 -top-20 w-64 h-64 bg-rose-500/5 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
+          
+          <div className="w-20 h-20 rounded-3xl bg-rose-500/10 flex items-center justify-center text-rose-500 shadow-[0_20px_40px_rgba(244,63,94,0.15)] border border-rose-500/20">
+            <AlertTriangle size={36} />
           </div>
-          <div className="flex-1">
-            <h4 className="font-black text-rose-500 uppercase tracking-[0.1em] text-sm mb-2">Alerta de Ruptura de Estoque</h4>
-            <p className="text-sm text-slate-400 font-medium leading-relaxed">
-              Existem materiais essenciais abaixo da quantidade mínima. Isso pode comprometer campanhas ativas em IES parceiras.
+          
+          <div className="flex-1 text-center md:text-left relative z-10">
+            <h4 className="font-black text-rose-500 uppercase tracking-[0.2em] text-sm mb-2 italic">Atenção: Incidente de Suprimentos</h4>
+            <p className="text-slate-400 font-medium leading-relaxed max-w-2xl">
+              Há <span className="text-rose-400 font-bold">{lowStock.length} materiais estratégicos</span> com estoque crítico. A falta de brindes e materiais de apoio impacta diretamente na conversão de novos parceiros e na percepção da marca GTM.
             </p>
           </div>
-          <button className="px-8 py-4 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-2xl transition-all shadow-lg shadow-rose-500/20 uppercase tracking-widest">
-            Ajustar Estoque
+          
+          <button className="px-10 py-5 bg-rose-500 hover:bg-rose-600 text-white font-black text-[10px] rounded-2xl transition-all shadow-xl shadow-rose-500/20 uppercase tracking-[0.2em] active:scale-95">
+            Resolver Agora
           </button>
         </div>
       )}
