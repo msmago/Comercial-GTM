@@ -38,15 +38,16 @@ export const getGtmStrategyStream = async (
       tarefasPendentes: contextData.tasks?.filter((t: any) => t.status !== 'DONE').length || 0,
     };
 
-    const fullPrompt = `Estilo: ${style}. Contexto: ${JSON.stringify(contextSummary)}. Pergunta: ${prompt}`;
+    const fullPrompt = `Estilo: ${style}. Contexto GTM: ${JSON.stringify(contextSummary)}. Pergunta: ${prompt}`;
 
+    // Trocamos para gemini-2.5-flash que é extremamente estável para ferramentas de busca (Grounding)
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.5-flash',
       contents: [{ parts: [{ text: fullPrompt }] }],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [{ googleSearch: {} }],
-        temperature: 0.5, // Menor temperatura para respostas mais estruturadas
+        temperature: 0.4, // Reduzido para maior precisão e estrutura
       },
     });
 
@@ -63,10 +64,17 @@ export const getGtmStrategyStream = async (
     onUpdate({ text, sources });
     return text;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro no Gemini:", error);
+    
+    // Fornecemos um feedback mais específico baseado no erro real
+    let errorMessage = "ERRO DE CONEXÃO COM A INTELIGÊNCIA.";
+    if (error.message?.includes("429")) errorMessage = "LIMITE DE COTAS EXCEDIDO. AGUARDE UM MOMENTO.";
+    if (error.message?.includes("403")) errorMessage = "CHAVE DE API SEM PERMISSÃO PARA BUSCA NO GOOGLE.";
+    if (error.message?.includes("404")) errorMessage = "MODELO NÃO ENCONTRADO OU INDISPONÍVEL.";
+    
     onUpdate({ 
-      text: "ERRO CRÍTICO NA CONEXÃO COM A INTELIGÊNCIA. VERIFIQUE OS LOGS.", 
+      text: `${errorMessage}\n\nDetalhe técnico: ${error.message || 'Erro desconhecido'}`, 
       sources: [] 
     });
     return null;
