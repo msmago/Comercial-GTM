@@ -9,6 +9,10 @@ import {
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ottzppnrctbrtwsfgidr.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_RDXC_dqs-bANRVCa0klJFA_Ehm0dlpc';
 
+console.log("DEBUG: Inicializando Supabase Client...");
+console.log("DEBUG: URL configurada:", SUPABASE_URL);
+console.log("DEBUG: Key presente:", !!SUPABASE_ANON_KEY);
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 interface AppState {
@@ -26,15 +30,15 @@ interface AppContextType extends AppState {
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
-  upsertCompany: (company: Partial<Company>) => Promise<{ success: boolean; error?: string }>;
+  upsertCompany: (company: Partial<Company>) => Promise<{ success: boolean; error?: any }>;
   deleteCompany: (id: string) => Promise<void>;
-  upsertTask: (task: Partial<Task>) => Promise<{ success: boolean; error?: string }>;
+  upsertTask: (task: Partial<Task>) => Promise<{ success: boolean; error?: any }>;
   deleteTask: (id: string) => Promise<void>;
   upsertEvent: (event: Partial<CommercialEvent>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
   upsertInventory: (item: Partial<InventoryItem>) => Promise<void>;
   deleteInventory: (id: string) => Promise<void>;
-  upsertSheet: (sheet: Partial<GoogleSheet>) => Promise<{ success: boolean; error?: string }>;
+  upsertSheet: (sheet: Partial<GoogleSheet>) => Promise<{ success: boolean; error?: any }>;
   deleteSheet: (id: string) => Promise<void>;
   logAction: (action: string, entity: string, entityId: string, details: string) => Promise<void>;
 }
@@ -60,6 +64,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
+      console.log(`DEBUG: Carregando dados para o usuário ${currentUser.id}...`);
       const [
         resCompanies,
         resTasks,
@@ -98,23 +103,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           date: t.due_date,
           createdAt: t.created_at
         })),
-        events: (resEvents.data || []).map(e => ({
-          id: e.id,
-          title: e.title,
-          description: e.description,
-          date: e.event_date,
-          type: e.event_type,
-          taskId: e.task_id,
-          createdBy: e.created_by
-        })),
-        inventory: (resInventory.data || []).map(i => ({
-          id: i.id,
-          name: i.name,
-          category: i.category,
-          quantity: i.quantity,
-          minQuantity: i.min_quantity,
-          lastUpdate: i.last_update
-        })),
         sheets: (resSheets.data || []).map(s => ({
           id: s.id,
           userId: s.user_id,
@@ -124,11 +112,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           description: s.description || '',
           createdAt: s.created_at
         })),
+        events: (resEvents.data || []).map(e => ({ id: e.id, title: e.title, description: e.description, date: e.event_date, type: e.event_type, taskId: e.task_id, createdBy: e.created_by })),
+        inventory: (resInventory.data || []).map(i => ({ id: i.id, name: i.name, category: i.category, quantity: i.quantity, minQuantity: i.min_quantity, lastUpdate: i.last_update })),
         logs: resLogs.data || [],
         loading: false
       }));
     } catch (error) {
-      console.error('Fetch error:', error);
+      console.error('DEBUG: Erro crítico no fetchData:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
@@ -145,7 +135,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [fetchData]);
 
   const upsertTask = async (task: Partial<Task>) => {
-    if (!state.user) return { success: false, error: "Usuário não autenticado" };
+    if (!state.user) return { success: false, error: "Usuário não logado" };
     
     const payload = {
       user_id: state.user.id,
@@ -156,20 +146,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       due_date: task.date || null
     };
     
-    console.log("DEBUG [upsertTask] - Payload Enviado:");
-    console.table(payload);
-
     try {
       let result;
-      if (task.id) {
+      if (task.id && task.id !== "") {
+        console.log("DEBUG: Atualizando tarefa existente ID:", task.id);
         result = await supabase.from('tasks').update(payload).eq('id', task.id);
       } else {
+        console.log("DEBUG: Inserindo nova tarefa...");
         result = await supabase.from('tasks').insert([payload]).select().single();
       }
 
       if (result.error) {
-        console.error("DEBUG [upsertTask] - Erro Supabase:", result.error);
-        return { success: false, error: result.error.message };
+        console.error("DEBUG: Erro Supabase em upsertTask:", result.error);
+        return { success: false, error: result.error };
       }
 
       const taskId = task.id || result.data?.id;
@@ -187,12 +176,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await fetchData(state.user);
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message };
+      console.error("DEBUG: Exceção em upsertTask:", e);
+      return { success: false, error: e };
     }
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
-    if (!state.user) return { success: false, error: "Usuário não autenticado" };
+    if (!state.user) return { success: false, error: "Usuário não logado" };
     
     const payload = {
       user_id: state.user.id,
@@ -202,26 +192,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: sheet.description || ''
     };
     
-    console.log("DEBUG [upsertSheet] - Payload Enviado:");
+    console.log("DEBUG: Preparando payload de Planilha...");
     console.table(payload);
 
     try {
       let result;
-      if (sheet.id) {
+      if (sheet.id && sheet.id !== "") {
+        console.log("DEBUG: Atualizando planilha existente ID:", sheet.id);
         result = await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
       } else {
-        result = await supabase.from('google_sheets').insert([payload]);
+        console.log("DEBUG: Inserindo nova planilha no banco...");
+        result = await supabase.from('google_sheets').insert([payload]).select();
       }
 
       if (result.error) {
-        console.error("DEBUG [upsertSheet] - Erro Supabase:", result.error);
-        return { success: false, error: result.error.message };
+        console.error("DEBUG: Erro Supabase em upsertSheet:", result.error);
+        return { success: false, error: result.error };
       }
 
+      console.log("DEBUG: Planilha salva com sucesso. Recarregando...");
       await fetchData(state.user);
       return { success: true };
     } catch (e: any) {
-      return { success: false, error: e.message };
+      console.error("DEBUG: Exceção em upsertSheet:", e);
+      return { success: false, error: e };
     }
   };
 
@@ -264,10 +258,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const upsertCompany = async (c: Partial<Company>) => {
     if (!state.user) return { success: false, error: "Sem usuário" };
     const p = { user_id: state.user.id, name: c.name, status: c.status, target_ies: c.targetIES, contacts: c.contacts };
-    if (c.id) await supabase.from('companies').update(p).eq('id', c.id);
-    else await supabase.from('companies').insert([p]);
+    let res;
+    if (c.id) res = await supabase.from('companies').update(p).eq('id', c.id);
+    else res = await supabase.from('companies').insert([p]);
     await fetchData(state.user);
-    return { success: true };
+    return { success: res.error ? false : true, error: res.error };
   };
 
   const deleteCompany = async (id: string) => {
