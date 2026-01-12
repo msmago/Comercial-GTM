@@ -1,14 +1,14 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { 
   Company, Task, CommercialEvent, InventoryItem, AuditLog, User, 
-  PipelineStatus, TaskStatus, TaskPriority, GoogleSheet 
+  PipelineStatus, TaskStatus, GoogleSheet 
 } from './types';
 
-// Configuração Supabase
-const SUPABASE_URL = 'https://ottzppnrctbrtwsfgidr.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_RDXC_dqs-bANRVCa0klJFA_Ehm0dlpc';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ottzppnrctbrtwsfgidr.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_RDXC_dqs-bANRVCa0klJFA_Ehm0dlpc';
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 interface AppState {
@@ -53,7 +53,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loading: true,
   });
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (currentUser: User | null) => {
+    if (!currentUser) {
+      setState(prev => ({ ...prev, loading: false }));
+      return;
+    }
+
     try {
       const [
         { data: companies },
@@ -63,12 +68,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         { data: sheets },
         { data: logs }
       ] = await Promise.all([
-        supabase.from('companies').select('*').order('created_at', { ascending: false }),
-        supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+        supabase.from('companies').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+        supabase.from('tasks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('commercial_events').select('*').order('event_date', { ascending: true }),
         supabase.from('inventory').select('*').order('name', { ascending: true }),
-        supabase.from('google_sheets').select('*').order('created_at', { ascending: false }),
-        supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100)
+        supabase.from('google_sheets').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+        supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(100)
       ]);
 
       setState(prev => ({
@@ -82,25 +87,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loading: false
       }));
     } catch (error) {
-      console.error('Erro ao carregar dados do Supabase:', error);
+      console.error('Erro ao carregar dados:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
 
   useEffect(() => {
-    fetchData();
-    const channel = supabase.channel('gtm_pro_changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const savedUser = localStorage.getItem('gtm_pro_user');
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      setState(prev => ({ ...prev, user: parsedUser }));
+      fetchData(parsedUser);
+    } else {
+      setState(prev => ({ ...prev, loading: false }));
+    }
   }, [fetchData]);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('gtm_pro_user');
-    if (savedUser) {
-      setState(prev => ({ ...prev, user: JSON.parse(savedUser) }));
-    }
-  }, []);
+    if (!state.user) return;
+
+    const channel = supabase.channel('gtm_pro_changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => fetchData(state.user))
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchData, state.user]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -118,15 +128,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
+      fetchData(user);
       return { success: true, message: 'Login realizado com sucesso!' };
     } catch (err) {
-      return { success: false, message: 'Ocorreu um erro ao tentar acessar.' };
+      return { success: false, message: 'Erro ao tentar acessar.' };
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
     try {
-      // Verifica se já existe
       const { data: existing } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
       if (existing) {
         return { success: false, message: 'Este e-mail já está cadastrado.' };
@@ -143,20 +153,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
+      fetchData(user);
       return { success: true, message: 'Conta criada com sucesso!' };
     } catch (err) {
-      return { success: false, message: 'Erro ao criar conta. Tente novamente.' };
+      return { success: false, message: 'Erro ao criar conta.' };
     }
   };
 
   const logout = () => {
-    setState(prev => ({ ...prev, user: null }));
+    setState(prev => ({ ...prev, user: null, companies: [], tasks: [], sheets: [], logs: [] }));
     localStorage.removeItem('gtm_pro_user');
   };
 
   const logAction = async (action: string, entity: string, entityId: string, details: string) => {
+    if (!state.user) return;
     await supabase.from('audit_logs').insert([{
-      user_id: state.user?.name || 'System',
+      user_id: state.user.id,
       action,
       entity,
       entity_id: entityId,
@@ -166,15 +178,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const upsertCompany = async (company: Partial<Company>) => {
+    if (!state.user) return;
     const payload = {
+      user_id: state.user.id,
       name: company.name,
       status: company.status,
       target_ies: company.targetIES,
       contacts: company.contacts,
       updated_at: new Date().toISOString()
     };
+    
     if (company.id) {
-      await supabase.from('companies').update(payload).eq('id', company.id);
+      await supabase.from('companies').update(payload).eq('id', company.id).eq('user_id', state.user.id);
     } else {
       await supabase.from('companies').insert([{ ...payload, created_at: new Date().toISOString() }]);
     }
@@ -182,49 +197,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteCompany = async (id: string) => {
-    await supabase.from('companies').delete().eq('id', id);
+    if (!state.user) return;
+    await supabase.from('companies').delete().eq('id', id).eq('user_id', state.user.id);
     await logAction('DELETE', 'Company', id, `Empresa removida.`);
   };
 
   const upsertTask = async (task: Partial<Task>) => {
+    if (!state.user) return;
     const payload = {
+      user_id: state.user.id,
       title: task.title,
       description: task.description,
       status: task.status,
       priority: task.priority,
       due_date: task.date
     };
+    
     let taskId = task.id;
     if (task.id) {
-      await supabase.from('tasks').update(payload).eq('id', task.id);
+      await supabase.from('tasks').update(payload).eq('id', task.id).eq('user_id', state.user.id);
     } else {
-      const { data } = await supabase.from('tasks').insert([payload]).select().single();
+      const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
+      if (error) throw error;
       taskId = data.id;
     }
-    if (task.date) {
+    
+    if (task.date && taskId) {
       await supabase.from('commercial_events').upsert([{
         title: `Task: ${task.title}`,
         description: task.description,
         event_date: task.date,
         event_type: 'AUTO_TASK',
         task_id: taskId,
-        created_by: state.user?.name || 'System'
+        created_by: state.user.name
       }], { onConflict: 'task_id' });
     }
     await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa sincronizada.`);
   };
 
   const deleteTask = async (id: string) => {
-    await supabase.from('tasks').delete().eq('id', id);
+    if (!state.user) return;
+    await supabase.from('tasks').delete().eq('id', id).eq('user_id', state.user.id);
+  };
+
+  const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
+    if (!state.user) return;
+    const payload = {
+      user_id: state.user.id,
+      title: sheet.title,
+      url: sheet.url,
+      category: sheet.category,
+      description: sheet.description
+    };
+    if (sheet.id) {
+      await supabase.from('google_sheets').update(payload).eq('id', sheet.id).eq('user_id', state.user.id);
+    } else {
+      await supabase.from('google_sheets').insert([payload]);
+    }
+  };
+
+  const deleteSheet = async (id: string) => {
+    if (!state.user) return;
+    await supabase.from('google_sheets').delete().eq('id', id).eq('user_id', state.user.id);
   };
 
   const upsertEvent = async (event: Partial<CommercialEvent>) => {
+    if (!state.user) return;
     const payload = {
       title: event.title,
       description: event.description,
       event_date: event.date,
       event_type: event.type || 'MANUAL',
-      created_by: state.user?.name || 'System'
+      created_by: state.user.name
     };
     if (event.id) {
       await supabase.from('commercial_events').update(payload).eq('id', event.id);
@@ -254,24 +298,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteInventory = async (id: string) => {
     await supabase.from('inventory').delete().eq('id', id);
-  };
-
-  const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
-    const payload = {
-      title: sheet.title,
-      url: sheet.url,
-      category: sheet.category,
-      description: sheet.description
-    };
-    if (sheet.id) {
-      await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
-    } else {
-      await supabase.from('google_sheets').insert([payload]);
-    }
-  };
-
-  const deleteSheet = async (id: string) => {
-    await supabase.from('google_sheets').delete().eq('id', id);
   };
 
   return (

@@ -2,15 +2,13 @@
 import { GoogleGenAI } from "@google/genai";
 
 export const getGtmStrategy = async (prompt: string, contextData: any, style: 'formal' | 'commercial' | 'persuasive' | 'simple' = 'commercial') => {
-  // Tenta pegar a chave de diferentes formas para garantir que funcione na Vercel
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey) {
-    console.error("GTM PRO AI: API_KEY não encontrada. Verifique as Environment Variables na Vercel.");
-    return "Erro: Chave de API não configurada.";
+  // A variável process.env.API_KEY agora é injetada pelo vite.config.ts
+  if (!process.env.API_KEY) {
+    console.error("GTM PRO AI: API_KEY não encontrada no ambiente.");
+    return "Erro: A Chave de API da IA não foi configurada corretamente no painel da Vercel.";
   }
 
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const model = 'gemini-3-flash-preview';
   
   const summaryContext = {
@@ -45,7 +43,7 @@ export const getGtmStrategy = async (prompt: string, contextData: any, style: 'f
     return response.text;
   } catch (error) {
     console.error("Gemini API Error:", error);
-    return "Desculpe, tive um problema ao processar seu resumo. Verifique a chave de API.";
+    return "Desculpe, tive um problema ao processar seu resumo. Verifique se sua API Key no painel da Vercel está correta.";
   }
 };
 

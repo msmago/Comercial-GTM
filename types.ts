@@ -30,6 +30,7 @@ export interface Contact {
 
 export interface Company {
   id: string;
+  userId: string; // Vínculo de propriedade
   name: string;
   status: PipelineStatus;
   targetIES: string;
@@ -40,6 +41,7 @@ export interface Company {
 
 export interface Task {
   id: string;
+  userId: string; // Vínculo de propriedade
   title: string;
   description: string;
   status: TaskStatus;
@@ -55,7 +57,7 @@ export interface CommercialEvent {
   date: string; // ISO string
   type: 'MANUAL' | 'AUTO_TASK';
   taskId?: string;
-  createdBy: string;
+  createdBy: string; // Nome para exibição no calendário compartilhado
 }
 
 export interface InventoryItem {
@@ -69,6 +71,7 @@ export interface InventoryItem {
 
 export interface GoogleSheet {
   id: string;
+  userId: string; // Vínculo de propriedade
   title: string;
   url: string;
   category: string;
