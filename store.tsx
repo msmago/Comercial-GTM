@@ -61,18 +61,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const [
-        { data: companies },
-        { data: tasks },
-        { data: events },
-        { data: inventory },
-        { data: sheets },
-        { data: logs }
+        { data: companies }, // INDIVIDUAL
+        { data: tasks },     // INDIVIDUAL
+        { data: events },    // COMPARTILHADO (Ranking)
+        { data: inventory }, // COMPARTILHADO
+        { data: sheets },    // COMPARTILHADO (Central de Planilhas)
+        { data: logs }       // INDIVIDUAL
       ] = await Promise.all([
         supabase.from('companies').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('tasks').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('commercial_events').select('*').order('event_date', { ascending: true }),
         supabase.from('inventory').select('*').order('name', { ascending: true }),
-        supabase.from('google_sheets').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
+        supabase.from('google_sheets').select('*').order('created_at', { ascending: false }),
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(100)
       ]);
 
@@ -250,7 +250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       description: sheet.description
     };
     if (sheet.id) {
-      await supabase.from('google_sheets').update(payload).eq('id', sheet.id).eq('user_id', state.user.id);
+      await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
     } else {
       await supabase.from('google_sheets').insert([payload]);
     }
@@ -258,7 +258,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteSheet = async (id: string) => {
     if (!state.user) return;
-    await supabase.from('google_sheets').delete().eq('id', id).eq('user_id', state.user.id);
+    await supabase.from('google_sheets').delete().eq('id', id);
   };
 
   const upsertEvent = async (event: Partial<CommercialEvent>) => {
