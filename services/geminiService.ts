@@ -1,31 +1,25 @@
 
-import { GoogleGenAI } from "@google/genai";
-
 export interface AIResponse {
   text: string;
   sources: { title: string; uri: string }[];
-  isQuotaError?: boolean;
-  isInvalidKeyError?: boolean;
-  provider: 'gemini' | 'openai';
+  provider: 'openai';
 }
 
-const SYSTEM_INSTRUCTION = `Você é o ANALISTA GTM PRO. 
+const SYSTEM_INSTRUCTION = `Você é o ANALISTA GTM PRO da Lovart AI. 
 Gere relatórios executivos de alto nível seguindo estritamente:
 1. PROIBIDO: NUNCA use asteriscos (* ou **).
-2. ENFASE: Use CAIXA ALTA para termos importantes.
+2. ENFASE: Use CAIXA ALTA para termos extremamente importantes.
 3. ESTRUTURA: Use '### ' para títulos de seção.
 4. LISTAS: Use '-' para tópicos.
-5. ESTILO: Tom direto e focado em ROI comercial para IES.`;
-
-// Detecta o provedor baseado no formato da chave
-const detectProvider = (): 'gemini' | 'openai' => {
-  const key = process.env.API_KEY || '';
-  if (key.startsWith('sk-')) return 'openai';
-  return 'gemini';
-};
+5. ESTILO: Tom direto, focado em ROI comercial e expansão de mercado para Instituições de Ensino Superior (IES).`;
 
 const callChatGPT = async (prompt: string, style: string): Promise<string> => {
   const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || !apiKey.startsWith('sk-')) {
+    throw new Error("CHAVE OPENAI INVÁLIDA OU AUSENTE. Certifique-se de que a API_KEY configurada no ambiente começa com 'sk-'.");
+  }
+
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -38,13 +32,14 @@ const callChatGPT = async (prompt: string, style: string): Promise<string> => {
         { role: "system", content: SYSTEM_INSTRUCTION },
         { role: "user", content: `Estilo: ${style}. Pergunta: ${prompt}` }
       ],
-      temperature: 0.7
+      temperature: 0.6,
+      max_tokens: 2000
     })
   });
 
   if (!response.ok) {
     const err = await response.json();
-    throw new Error(err.error?.message || "Erro na API da OpenAI");
+    throw new Error(err.error?.message || "Erro de comunicação com a OpenAI.");
   }
 
   const data = await response.json();
@@ -55,64 +50,28 @@ export const getGtmStrategyStream = async (
   prompt: string, 
   contextData: any, 
   onUpdate: (data: AIResponse) => void,
-  style: 'formal' | 'commercial' | 'persuasive' | 'simple' = 'commercial',
-  requestedProvider?: 'gemini' | 'openai'
+  style: 'formal' | 'commercial' | 'persuasive' | 'simple' = 'commercial'
 ) => {
-  const apiKey = process.env.API_KEY;
-  const autoProvider = detectProvider();
-  const provider = requestedProvider || autoProvider;
-
   try {
-    if (!apiKey) throw new Error("API_KEY não encontrada no ambiente.");
-
-    if (provider === 'openai') {
-      const text = await callChatGPT(prompt, style);
-      onUpdate({ text, sources: [], provider: 'openai' });
-      return text;
-    }
-
-    // Fluxo Gemini
-    const ai = new GoogleGenAI({ apiKey });
-    const contextSummary = { empresas: contextData.companies?.length || 0 };
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: [{ parts: [{ text: `Pergunta: ${prompt} Contexto: ${JSON.stringify(contextSummary)}` }] }],
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        tools: [{ googleSearch: {} }],
-        temperature: 0.3,
-      },
+    const text = await callChatGPT(prompt, style);
+    
+    // Como a API padrão da OpenAI não fornece grounding de busca como o Gemini, 
+    // retornamos fontes vazias para manter a compatibilidade da interface.
+    onUpdate({ 
+      text, 
+      sources: [], 
+      provider: 'openai' 
     });
-
-    const text = response.text || "";
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    const sources = groundingChunks
-      .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({ title: chunk.web.title, uri: chunk.web.uri }));
-
-    onUpdate({ text, sources, provider: 'gemini' });
+    
     return text;
 
   } catch (error: any) {
-    console.error("AI Service Error:", error);
+    console.error("OpenAI Service Error:", error);
     
-    const isQuota = error.message?.includes("429") || error.message?.includes("quota");
-    const isInvalid = error.message?.includes("400") || error.message?.includes("key not valid") || error.message?.includes("invalid");
-
-    let errorMessage = `ERRO: ${error.message}`;
-    if (isInvalid) {
-      errorMessage = `CHAVE INVÁLIDA DETECTADA. A chave configurada não parece ser compatível com o motor ${provider.toUpperCase()}. Se você estiver usando uma chave da OpenAI (sk-...), selecione 'ChatGPT' no topo.`;
-    } else if (isQuota) {
-      errorMessage = "LIMITE DE COTAS EXCEDIDO. O motor Gemini atingiu o limite de requisições. Tente novamente em 60 segundos ou alterne para o motor ChatGPT.";
-    }
-
     onUpdate({ 
-      text: errorMessage, 
+      text: `FALHA ESTRATÉGICA: ${error.message}`, 
       sources: [],
-      isQuotaError: isQuota,
-      isInvalidKeyError: isInvalid,
-      provider
+      provider: 'openai'
     });
     return null;
   }
