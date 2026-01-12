@@ -76,7 +76,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(100)
       ]);
 
-      // MAPEAR DADOS DO BANCO (snake_case) PARA O FRONTEND (camelCase)
+      // MAPEAMENTO ROBUSTO: Garante que enums sejam válidos e em CAIXA ALTA
       const mappedCompanies: Company[] = (companiesRaw || []).map(c => ({
         id: c.id,
         userId: c.user_id,
@@ -139,7 +139,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loading: false
       }));
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Erro crítico ao carregar dados:', error);
       setState(prev => ({ ...prev, loading: false }));
     }
   }, []);
@@ -173,15 +173,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .eq('password', password)
         .single();
 
-      if (error || !data) {
-        return { success: false, message: 'E-mail ou senha incorretos.' };
-      }
+      if (error || !data) return { success: false, message: 'E-mail ou senha incorretos.' };
 
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
-      fetchData(user);
-      return { success: true, message: 'Login realizado com sucesso!' };
+      await fetchData(user);
+      return { success: true, message: 'Login realizado!' };
     } catch (err) {
       return { success: false, message: 'Erro ao tentar acessar.' };
     }
@@ -190,9 +188,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const register = async (name: string, email: string, password: string) => {
     try {
       const { data: existing } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
-      if (existing) {
-        return { success: false, message: 'Este e-mail já está cadastrado.' };
-      }
+      if (existing) return { success: false, message: 'E-mail já cadastrado.' };
 
       const { data, error } = await supabase
         .from('users')
@@ -201,12 +197,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single();
 
       if (error) throw error;
-
       const user: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
       setState(prev => ({ ...prev, user }));
       localStorage.setItem('gtm_pro_user', JSON.stringify(user));
-      fetchData(user);
-      return { success: true, message: 'Conta criada com sucesso!' };
+      await fetchData(user);
+      return { success: true, message: 'Conta criada!' };
     } catch (err) {
       return { success: false, message: 'Erro ao criar conta.' };
     }
@@ -241,16 +236,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     
     if (company.id) {
-      await supabase.from('companies').update(payload).eq('id', company.id).eq('user_id', state.user.id);
+      await supabase.from('companies').update(payload).eq('id', company.id);
     } else {
       await supabase.from('companies').insert([{ ...payload, created_at: new Date().toISOString() }]);
     }
-    await logAction(company.id ? 'UPDATE' : 'CREATE', 'Company', company.id || 'new', `Empresa ${company.name} atualizada.`);
+    await fetchData(state.user); // REFRESH IMEDIATO
+    await logAction(company.id ? 'UPDATE' : 'CREATE', 'Company', company.id || 'new', `Empresa ${company.name} salva.`);
   };
 
   const deleteCompany = async (id: string) => {
     if (!state.user) return;
-    await supabase.from('companies').delete().eq('id', id).eq('user_id', state.user.id);
+    await supabase.from('companies').delete().eq('id', id);
+    await fetchData(state.user); // REFRESH IMEDIATO
     await logAction('DELETE', 'Company', id, `Empresa removida.`);
   };
 
@@ -260,21 +257,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       user_id: state.user.id,
       title: task.title,
       description: task.description,
-      status: task.status,
-      priority: task.priority,
-      due_date: task.date
+      status: task.status || TaskStatus.TODO,
+      priority: task.priority || TaskPriority.MEDIUM,
+      due_date: task.date || null
     };
     
     let taskId = task.id;
     if (task.id) {
-      await supabase.from('tasks').update(payload).eq('id', task.id).eq('user_id', state.user.id);
+      await supabase.from('tasks').update(payload).eq('id', task.id);
     } else {
       const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
       if (error) throw error;
       taskId = data.id;
     }
     
-    // Sincronização automática com o calendário se houver data
     if (task.date && taskId) {
       await supabase.from('commercial_events').upsert([{
         title: `Tarefa: ${task.title}`,
@@ -287,13 +283,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else if (!task.date && taskId) {
       await supabase.from('commercial_events').delete().eq('task_id', taskId);
     }
-    await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa sincronizada.`);
+    
+    await fetchData(state.user); // REFRESH IMEDIATO: Garante que a tarefa apareça no Kanban
+    await logAction(task.id ? 'UPDATE' : 'CREATE', 'Task', taskId || 'new', `Tarefa ${task.title} sincronizada.`);
   };
 
   const deleteTask = async (id: string) => {
     if (!state.user) return;
-    await supabase.from('tasks').delete().eq('id', id).eq('user_id', state.user.id);
+    await supabase.from('tasks').delete().eq('id', id);
     await supabase.from('commercial_events').delete().eq('task_id', id);
+    await fetchData(state.user); // REFRESH IMEDIATO
     await logAction('DELETE', 'Task', id, `Tarefa removida.`);
   };
 
@@ -311,11 +310,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       await supabase.from('google_sheets').insert([payload]);
     }
+    await fetchData(state.user);
   };
 
   const deleteSheet = async (id: string) => {
     if (!state.user) return;
     await supabase.from('google_sheets').delete().eq('id', id);
+    await fetchData(state.user);
   };
 
   const upsertEvent = async (event: Partial<CommercialEvent>) => {
@@ -332,10 +333,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       await supabase.from('commercial_events').insert([payload]);
     }
+    await fetchData(state.user);
   };
 
   const deleteEvent = async (id: string) => {
     await supabase.from('commercial_events').delete().eq('id', id);
+    if (state.user) await fetchData(state.user);
   };
 
   const upsertInventory = async (item: Partial<InventoryItem>) => {
@@ -351,10 +354,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       await supabase.from('inventory').insert([payload]);
     }
+    if (state.user) await fetchData(state.user);
   };
 
   const deleteInventory = async (id: string) => {
     await supabase.from('inventory').delete().eq('id', id);
+    if (state.user) await fetchData(state.user);
   };
 
   return (
