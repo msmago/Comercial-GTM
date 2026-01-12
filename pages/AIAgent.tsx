@@ -6,19 +6,63 @@ import {
   BrainCircuit, 
   Send, 
   Sparkles, 
-  Target, 
-  FileCheck,
   RefreshCw,
   Copy,
   Check,
-  BarChart3,
   Zap,
   Lightbulb,
-  AlertCircle,
   Globe,
   ExternalLink,
-  Search
+  Search,
+  MessageSquareText,
+  Layout
 } from 'lucide-react';
+
+// Componente para renderizar o texto da IA de forma estilizada e limpa
+const FormattedAIResponse = ({ text }: { text: string }) => {
+  if (!text) return null;
+
+  // Remove qualquer asterisco residual que a IA possa ter gerado por vício de treinamento
+  const cleanText = text.replace(/\*\*/g, '').replace(/\*/g, '');
+
+  const lines = cleanText.split('\n');
+  
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      {lines.map((line, index) => {
+        // Renderiza Títulos (Iniciados com ### ou totalmente em CAIXA ALTA e curtos)
+        if (line.startsWith('###') || (line.length < 50 && line === line.toUpperCase() && line.trim().length > 3)) {
+          return (
+            <h3 key={index} className="text-blue-400 font-black text-xs uppercase tracking-[0.2em] mt-8 mb-2 border-l-2 border-blue-600 pl-3">
+              {line.replace('###', '').trim()}
+            </h3>
+          );
+        }
+        
+        // Renderiza Listas
+        if (line.trim().startsWith('-')) {
+          return (
+            <div key={index} className="flex gap-3 pl-2 group">
+              <span className="text-blue-500 font-bold group-hover:scale-125 transition-transform">•</span>
+              <p className="text-slate-300 text-sm leading-relaxed">{line.replace('-', '').trim()}</p>
+            </div>
+          );
+        }
+
+        // Renderiza Parágrafos Normais
+        if (line.trim().length > 0) {
+          return (
+            <p key={index} className="text-slate-400 text-sm leading-relaxed font-medium">
+              {line}
+            </p>
+          );
+        }
+
+        return <div key={index} className="h-2" />;
+      })}
+    </div>
+  );
+};
 
 const AIAgent = () => {
   const store = useStore();
@@ -30,9 +74,9 @@ const AIAgent = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const SUGGESTIONS = [
-    { label: "Notícias do Setor", icon: Globe, prompt: "Quais as últimas notícias sobre o mercado de ensino superior privado no Brasil?" },
-    { label: "Análise de Concorrência", icon: Search, prompt: "Pesquise como está o ranking das maiores IES em termos de satisfação de alunos este ano." },
-    { label: "Tendências GTM", icon: Zap, prompt: "Quais são as tendências de parcerias B2B para educação em 2026?" },
+    { label: "Análise Estratégica", icon: Layout, prompt: "Analise meu pipeline atual e me dê 3 ações táticas para aumentar a conversão de prospectos." },
+    { label: "Mercado Educacional", icon: Globe, prompt: "Quais as principais tendências de captação de alunos para 2026 segundo as últimas notícias?" },
+    { label: "Scripts de Elite", icon: Zap, prompt: "Crie um roteiro de abordagem comercial de alto nível para IES que ainda não são parceiras." },
   ];
 
   useEffect(() => {
@@ -60,113 +104,131 @@ const AIAgent = () => {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(response.text);
+    navigator.clipboard.writeText(response.text.replace(/\*/g, ''));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 border border-white/10">
-            <BrainCircuit size={28} className="text-white" />
+    <div className="max-w-6xl mx-auto space-y-8 pb-20">
+      {/* Header com Design de BI */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="flex items-center gap-5">
+          <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[22px] flex items-center justify-center shadow-2xl shadow-blue-500/20 border border-white/10 rotate-3">
+            <BrainCircuit size={32} className="text-white" />
           </div>
           <div>
-            <h2 className="text-2xl font-black italic tracking-tight text-white uppercase">GTM AI Agent + Search</h2>
-            <p className="text-slate-500 font-bold text-[10px] uppercase tracking-widest">Inteligência Comercial com Busca Google Integrada</p>
+            <h2 className="text-3xl font-black italic tracking-tighter text-white uppercase">GTM AI Agent</h2>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <p className="text-slate-500 font-black text-[9px] uppercase tracking-[0.2em]">Cérebro Estratégico Online</p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 p-1 bg-slate-900/50 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 p-1.5 bg-slate-900/80 rounded-2xl border border-slate-800 shadow-inner">
           {['formal', 'commercial', 'persuasive'].map((s) => (
             <button
               key={s}
               onClick={() => setStyle(s as any)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${style === s ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${style === s ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}
             >
-              {s === 'commercial' ? 'Vendas' : s === 'formal' ? 'Executivo' : 'Pitch'}
+              {s === 'commercial' ? 'Comercial' : s === 'formal' ? 'Executivo' : 'Persuasivo'}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Sidebar de Ações Rápidas */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="glass p-6 rounded-3xl border-white/5 shadow-xl space-y-6">
+          <div className="glass p-8 rounded-[32px] border-white/5 shadow-2xl space-y-8">
             <div>
-              <h4 className="font-black text-[10px] text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Globe size={12} className="text-blue-500" /> Inteligência Externa
+              <h4 className="font-black text-[10px] text-slate-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                <Lightbulb size={14} className="text-yellow-500" /> Prompts de Elite
               </h4>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {SUGGESTIONS.map((s, idx) => (
                   <button 
                     key={idx}
                     onClick={() => handleConsult(s.prompt)}
-                    className="w-full text-left p-3 rounded-2xl bg-slate-800/30 border border-slate-700/50 hover:border-blue-500/50 hover:bg-slate-800/60 transition-all group"
+                    className="w-full text-left p-4 rounded-2xl bg-slate-950/40 border border-slate-800/50 hover:border-blue-500/50 hover:bg-slate-900 transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <s.icon size={14} className="text-slate-500 group-hover:text-blue-400" />
-                      <span className="text-xs font-bold text-slate-400 group-hover:text-slate-200">{s.label}</span>
+                      <div className="p-2 bg-slate-900 rounded-lg group-hover:bg-blue-600/10 transition-colors">
+                        <s.icon size={16} className="text-slate-500 group-hover:text-blue-400" />
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-400 group-hover:text-slate-200 leading-tight">{s.label}</span>
                     </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="pt-6 border-t border-slate-800">
-              <h4 className="font-black text-[10px] text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <AlertCircle size={12} className="text-emerald-500" /> Auditoria de Dados
-              </h4>
-              <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800 text-[10px] text-slate-400 leading-relaxed font-bold uppercase">
-                O Agente agora consulta o Google em tempo real para validar tendências de mercado e dados públicos de outras IES.
+            <div className="pt-8 border-t border-slate-800/60">
+              <div className="p-5 bg-blue-600/5 rounded-2xl border border-blue-500/10 space-y-3 text-center">
+                <Search size={24} className="text-blue-500 mx-auto opacity-50" />
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-relaxed">
+                  Busca Google integrada para dados de mercado em tempo real.
+                </p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-3 flex flex-col gap-4">
-          <div className="glass rounded-[32px] border-white/5 shadow-2xl flex flex-col h-[600px] relative overflow-hidden">
-            <div className="px-8 py-4 border-b border-slate-800/60 flex items-center justify-between bg-slate-900/20">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${loading ? 'bg-blue-500 animate-ping' : 'bg-emerald-500'} `}></div>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {loading ? 'Pesquisando no Google...' : 'Pronto para Analisar'}
-                </span>
+        {/* Console de Inteligência */}
+        <div className="lg:col-span-3 flex flex-col gap-6">
+          <div className="glass rounded-[40px] border-white/5 shadow-2xl flex flex-col h-[650px] relative overflow-hidden bg-slate-950/40">
+            {/* Toolbar Superior */}
+            <div className="px-10 py-5 border-b border-slate-800/60 flex items-center justify-between bg-slate-950/20">
+              <div className="flex items-center gap-3">
+                <MessageSquareText size={18} className="text-blue-500" />
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Console de Resposta</span>
               </div>
               {response.text && (
-                <div className="flex items-center gap-2">
-                  <button onClick={copyToClipboard} className="p-2 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-blue-400 transition-all">
-                    {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                <div className="flex items-center gap-3">
+                  <button onClick={copyToClipboard} className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-blue-400 transition-all border border-transparent hover:border-slate-700">
+                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                    <span className="text-[10px] font-black uppercase tracking-widest">{copied ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                  <button onClick={() => setResponse({ text: '', sources: [] })} className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-rose-400 transition-all">
+                    <RefreshCw size={16} />
                   </button>
                 </div>
               )}
             </div>
 
-            <div ref={scrollRef} className="flex-1 p-8 overflow-y-auto custom-scrollbar">
-              {response.text ? (
-                <div className="space-y-6">
-                  <div className="prose prose-invert max-w-none text-slate-300 leading-relaxed whitespace-pre-wrap text-sm font-medium">
-                    {response.text}
+            {/* Visualizador de Texto Formatado */}
+            <div ref={scrollRef} className="flex-1 p-10 overflow-y-auto custom-scrollbar scroll-smooth">
+              {loading && !response.text ? (
+                <div className="h-full flex flex-col items-center justify-center space-y-4">
+                  <div className="relative">
+                    <div className="w-16 h-16 border-4 border-blue-500/10 border-t-blue-500 rounded-full animate-spin"></div>
+                    <Sparkles size={24} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-blue-500 animate-pulse" />
                   </div>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Sincronizando Inteligência...</p>
+                </div>
+              ) : response.text ? (
+                <div className="max-w-3xl">
+                  <FormattedAIResponse text={response.text} />
 
-                  {/* Exibição das Fontes de Pesquisa */}
+                  {/* Fontes com Design Limpo */}
                   {response.sources.length > 0 && (
-                    <div className="mt-8 pt-6 border-t border-slate-800/60 animate-in slide-in-from-bottom-2 duration-700">
-                      <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                        <Globe size={12} /> Fontes Consultadas (Google Search)
+                    <div className="mt-12 pt-8 border-t border-slate-800/60">
+                      <h5 className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] mb-5 flex items-center gap-2">
+                        <Globe size={12} /> Referências de Mercado
                       </h5>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {response.sources.map((source, i) => (
                           <a 
                             key={i}
                             href={source.uri} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center gap-2 px-3 py-2 bg-slate-900/80 border border-slate-800 rounded-xl hover:border-blue-500/50 hover:bg-slate-800 transition-all group"
+                            className="flex items-center justify-between p-4 bg-slate-900/40 border border-slate-800 hover:border-blue-500/40 rounded-2xl transition-all group"
                           >
-                            <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-400 truncate max-w-[200px]">{source.title}</span>
-                            <ExternalLink size={10} className="text-slate-600 group-hover:text-blue-400" />
+                            <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-300 truncate pr-4">{source.title}</span>
+                            <ExternalLink size={12} className="text-slate-700 group-hover:text-blue-500 flex-shrink-0" />
                           </a>
                         ))}
                       </div>
@@ -174,37 +236,52 @@ const AIAgent = () => {
                   )}
                 </div>
               ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-                  <div className="w-20 h-20 rounded-full bg-slate-800/50 flex items-center justify-center mb-6">
-                    <Search size={40} className="text-slate-600" />
+                <div className="h-full flex flex-col items-center justify-center text-center">
+                  <div className="w-24 h-24 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-8 shadow-inner">
+                    <Sparkles size={40} className="text-slate-700" />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">Potencialize seu GTM</h3>
-                  <p className="text-xs text-slate-500 max-w-xs uppercase tracking-widest font-black leading-relaxed">
-                    Pergunte sobre dados internos ou peça para eu pesquisar tendências no Google.
+                  <h3 className="text-2xl font-black text-white mb-3 italic tracking-tight">O que vamos analisar agora?</h3>
+                  <p className="text-[10px] text-slate-600 max-w-[280px] uppercase tracking-[0.2em] font-black leading-relaxed">
+                    Escolha um dos tópicos ao lado ou inicie um diagnóstico personalizado.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="p-6 bg-slate-900/40 border-t border-slate-800/60">
+            {/* Input com Estética Futurista */}
+            <div className="p-8 bg-slate-950/60 border-t border-slate-800/60 backdrop-blur-md">
               <form 
                 onSubmit={(e) => { e.preventDefault(); handleConsult(); }} 
-                className="flex items-center gap-3 bg-slate-950/80 p-2 rounded-2xl border border-slate-800 focus-within:border-blue-500/50 transition-all"
+                className="flex items-center gap-4 bg-slate-900/80 p-2.5 rounded-[24px] border border-slate-800 focus-within:border-blue-500/50 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all"
               >
+                <div className="p-3 bg-slate-800 rounded-2xl text-slate-500">
+                  <Search size={18} />
+                </div>
                 <input 
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
-                  placeholder="Ex: Quais as IES que mais cresceram em parcerias no último ano?"
-                  className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-slate-200 placeholder:text-slate-600 text-sm font-medium"
+                  placeholder="Digite sua dúvida estratégica..."
+                  className="flex-1 bg-transparent border-none outline-none px-2 py-2 text-slate-200 placeholder:text-slate-600 text-sm font-bold tracking-tight"
                 />
                 <button 
                   disabled={loading || !prompt.trim()}
                   type="submit"
-                  className="p-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white rounded-xl transition-all shadow-lg shadow-blue-600/20"
+                  className="px-8 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-20 text-white rounded-[18px] transition-all shadow-xl shadow-blue-600/20 font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
                 >
-                  {loading ? <RefreshCw className="animate-spin" size={20} /> : <Send size={20} />}
+                  {loading ? <RefreshCw className="animate-spin" size={16} /> : <><Send size={16} /> Enviar</>}
                 </button>
               </form>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-center gap-8">
+            <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all opacity-40 hover:opacity-100 cursor-default">
+              <div className="w-4 h-4 rounded bg-white flex items-center justify-center text-[8px] font-black text-black">G</div>
+              <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Powered by Gemini 3.0</span>
+            </div>
+            <div className="flex items-center gap-2 grayscale hover:grayscale-0 transition-all opacity-40 hover:opacity-100 cursor-default">
+              <Globe size={14} className="text-slate-500" />
+              <span className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Live Grounding Active</span>
             </div>
           </div>
         </div>
