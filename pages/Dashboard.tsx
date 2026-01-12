@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useStore } from '../store';
 import { PipelineStatus, TaskStatus } from '../types';
 import { 
@@ -15,7 +15,8 @@ import {
   Trophy,
   User as UserIcon,
   Medal,
-  BarChart3
+  BarChart3,
+  Activity
 } from 'lucide-react';
 
 const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }: any) => (
@@ -41,7 +42,7 @@ const StatCard = ({ title, value, icon: Icon, color, trend, trendValue }: any) =
 );
 
 const Dashboard = () => {
-  const { companies, inventory, events, tasks } = useStore();
+  const { companies, inventory, events, tasks, user: currentUser } = useStore();
 
   // --- CÁLCULO DE PERFORMANCE GTM REAL ---
   const totalTasks = tasks.length;
@@ -56,7 +57,7 @@ const Dashboard = () => {
     ? ((taskEfficiency + conversionRate) / 2).toFixed(1) 
     : "0.0";
 
-  // --- DADOS DO PIPELINE (SUBSTITUI ALMOXARIFADO NO GRÁFICO) ---
+  // --- DADOS DO PIPELINE ---
   const pipelineStats = [
     { name: 'Prospecção', count: companies.filter(c => c.status === PipelineStatus.PROSPECT).length, color: '#64748b' },
     { name: 'Contatado', count: companies.filter(c => c.status === PipelineStatus.CONTACTED).length, color: '#3b82f6' },
@@ -68,24 +69,28 @@ const Dashboard = () => {
   const lowStock = inventory.filter(i => i.quantity < i.minQuantity);
   const totalEvents = events.length;
 
-  // Cálculo do Ranking GTM
-  const userStats = events.reduce((acc: any, event) => {
-    const user = event.createdBy || 'Sistema';
-    acc[user] = (acc[user] || 0) + 1;
-    return acc;
-  }, {});
+  // --- RANKING GTM REALTIME ---
+  const rankingData = useMemo(() => {
+    const stats = events.reduce((acc: any, event) => {
+      const creator = event.createdBy || 'Sistema';
+      acc[creator] = (acc[creator] || 0) + 1;
+      return acc;
+    }, {});
 
-  const rankingData = Object.entries(userStats)
-    .map(([name, count]) => ({ name, count: count as number }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
+    return Object.entries(stats)
+      .map(([name, count]) => ({ name, count: count as number }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [events]);
+
+  const maxPoints = rankingData[0]?.count || 1;
 
   const getRankIcon = (index: number) => {
     switch(index) {
-      case 0: return <Medal className="text-yellow-400 filter drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]" size={24} />;
-      case 1: return <Medal className="text-slate-300 filter drop-shadow-[0_0_8px_rgba(203,213,225,0.4)]" size={24} />;
-      case 2: return <Medal className="text-amber-600 filter drop-shadow-[0_0_8px_rgba(180,83,9,0.4)]" size={24} />;
-      default: return <span className="text-slate-500 font-black text-sm w-6 text-center">{index + 1}º</span>;
+      case 0: return <Medal className="text-yellow-400 filter drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]" size={26} />;
+      case 1: return <Medal className="text-slate-300 filter drop-shadow-[0_0_10px_rgba(203,213,225,0.4)]" size={24} />;
+      case 2: return <Medal className="text-amber-600 filter drop-shadow-[0_0_10px_rgba(180,83,9,0.4)]" size={22} />;
+      default: return <span className="text-slate-600 font-black text-xs w-6 text-center">{index + 1}º</span>;
     }
   };
 
@@ -99,7 +104,6 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* GRÁFICO ÚTIL: DISTRIBUIÇÃO DO PIPELINE */}
         <div className="xl:col-span-2 glass p-8 rounded-[32px] border-white/5 shadow-2xl">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-xl font-bold flex items-center gap-3">
@@ -126,7 +130,7 @@ const Dashboard = () => {
                 />
                 <Tooltip 
                   cursor={{fill: 'rgba(255,255,255,0.05)'}}
-                  contentStyle={{ backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '16px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)' }}
+                  contentStyle={{ backgroundColor: '#020617', border: '1px solid #1e293b', borderRadius: '16px' }}
                   itemStyle={{ color: '#f8fafc', fontWeight: 700 }}
                   labelStyle={{ color: '#94a3b8', marginBottom: '8px', fontWeight: 800, textTransform: 'uppercase', fontSize: '10px' }}
                 />
@@ -140,48 +144,74 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* RANKING GTM */}
-        <div className="glass p-8 rounded-[32px] border-white/5 shadow-2xl flex flex-col">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-xl font-bold flex items-center gap-3">
-              <span className="w-2 h-6 bg-yellow-500 rounded-full shadow-[0_0_12px_rgba(234,179,8,0.5)]"></span>
-              Ranking GTM
-            </h3>
-            <Trophy className="text-yellow-500 animate-bounce-slow" size={28} />
+        {/* RANKING GTM REFORMULADO */}
+        <div className="glass p-8 rounded-[40px] border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex flex-col relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-6">
+             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full animate-pulse">
+                <Activity size={10} className="text-emerald-500" />
+                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">LIVE SYNC</span>
+             </div>
+          </div>
+
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 bg-yellow-500/10 rounded-2xl flex items-center justify-center border border-yellow-500/20 shadow-inner">
+              <Trophy className="text-yellow-500" size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-black italic uppercase tracking-tighter text-white">Ranking GTM</h3>
+              <p className="text-[9px] text-slate-500 font-black uppercase tracking-[0.2em]">Pilar de Prospecção Ativa</p>
+            </div>
           </div>
           
-          <p className="text-[11px] text-slate-500 mb-8 font-bold leading-relaxed uppercase tracking-wider">
-            Consolidado de prospecção e eventos executados por consultor.
-          </p>
+          <div className="flex-1 space-y-3">
+            {rankingData.length > 0 ? rankingData.map((user, index) => {
+              const isMe = currentUser?.name === user.name;
+              const progressWidth = (user.count / maxPoints) * 100;
+              
+              return (
+                <div key={user.name} className={`group relative p-5 rounded-[24px] border transition-all duration-300 ${isMe ? 'bg-blue-600/10 border-blue-500/40 shadow-[0_0_20px_rgba(37,99,235,0.1)]' : 'bg-slate-900/40 border-slate-800/60 hover:border-slate-700'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        {getRankIcon(index)}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={`text-sm font-black uppercase tracking-tight ${isMe ? 'text-blue-400' : 'text-slate-200'}`}>
+                          {user.name} {isMe && <span className="text-[9px] lowercase font-normal opacity-50 ml-1">(você)</span>}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                       <span className={`text-xl font-black tracking-tighter ${index === 0 ? 'text-yellow-500' : 'text-slate-100'}`}>
+                         {user.count}
+                       </span>
+                       <span className="text-[8px] text-slate-600 block font-black uppercase tracking-widest">Eventos</span>
+                    </div>
+                  </div>
 
-          <div className="flex-1 space-y-4">
-            {rankingData.length > 0 ? rankingData.map((user, index) => (
-              <div key={user.name} className="flex items-center justify-between p-5 rounded-[20px] bg-slate-900/40 border border-slate-800/60 hover:border-blue-500/30 transition-all group shadow-sm">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    {getRankIcon(index)}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-black text-slate-200 group-hover:text-white transition-colors uppercase">{user.name}</span>
-                    <span className="text-[9px] text-slate-600 font-black uppercase tracking-widest">Performance GTM</span>
+                  {/* Barra de Progresso do Competidor */}
+                  <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-1000 ease-out ${index === 0 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.4)]' : isMe ? 'bg-blue-500' : 'bg-slate-700'}`}
+                      style={{ width: `${progressWidth}%` }}
+                    />
                   </div>
                 </div>
-                <div className="flex flex-col items-end">
-                  <span className="text-xl font-black text-blue-400 tracking-tight">{user.count}</span>
-                  <span className="text-[8px] text-slate-700 font-black uppercase">KPIs</span>
-                </div>
-              </div>
-            )) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 opacity-20">
-                <UserIcon size={48} className="mb-4" />
-                <p className="text-xs font-black uppercase tracking-widest">Sem registros este mês</p>
+              );
+            }) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-10 opacity-20">
+                <UserIcon size={64} className="mb-6 text-slate-700" />
+                <p className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Aguardando registros...</p>
               </div>
             )}
           </div>
           
-          <button className="mt-8 w-full py-4 bg-slate-800/30 hover:bg-blue-600/10 text-slate-500 hover:text-blue-400 text-[10px] font-black rounded-2xl border border-slate-800/50 hover:border-blue-500/30 transition-all uppercase tracking-[0.2em]">
-            Exportar Ranking
-          </button>
+          <div className="mt-8 pt-6 border-t border-slate-800/60">
+             <p className="text-[9px] text-center text-slate-600 font-bold uppercase tracking-widest leading-relaxed">
+               Cada agendamento no calendário soma <span className="text-emerald-500">+1 PONTO</span>.<br/>
+               Transparência total na performance do time.
+             </p>
+          </div>
         </div>
       </div>
 
