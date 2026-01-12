@@ -1,81 +1,102 @@
 
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 
-const getAIClient = () => {
+const getGeminiClient = () => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("API_KEY não configurada no ambiente.");
+  if (!apiKey) throw new Error("API_KEY não configurada.");
   return new GoogleGenAI({ apiKey });
 };
 
-const SYSTEM_INSTRUCTION = `Você é o Analista GTM PRO de Elite. 
-Sua entrega de texto deve seguir um padrão EXECUTIVO e LIMPO.
-
-REGRAS CRÍTICAS DE FORMATAÇÃO:
-1. NUNCA use asteriscos duplos (**) ou simples (*) para negrito ou itálico.
-2. Para dar ênfase a termos importantes, use CAIXA ALTA.
-3. Use títulos com '### ' para separar seções (ex: ### ANÁLISE DE MERCADO).
-4. Use listas com hífen '-' para tópicos.
-5. Deixe uma linha em branco entre cada parágrafo ou título.
-6. Foque em ser direto, tático e profissional.
-7. Se usar o Google Search, cite as fontes no final de forma organizada.`;
+const SYSTEM_INSTRUCTION = `Você é o ANALISTA GTM PRO. 
+Gere relatórios executivos de alto nível seguindo estritamente:
+1. PROIBIDO: NUNCA use asteriscos (* ou **).
+2. ENFASE: Use CAIXA ALTA para termos importantes.
+3. ESTRUTURA: Use '### ' para títulos.
+4. LISTAS: Use '-' para tópicos.
+5. ESTILO: Tom direto e focado em ROI comercial para IES.`;
 
 export interface AIResponse {
   text: string;
   sources: { title: string; uri: string }[];
+  isQuotaError?: boolean;
+  provider: 'gemini' | 'openai';
 }
+
+const callChatGPT = async (prompt: string, style: string): Promise<string> => {
+  const apiKey = process.env.API_KEY; // Assume que o usuário trocou a key ou a mesma serve para um proxy
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini", // Modelo rápido e econômico
+      messages: [
+        { role: "system", content: SYSTEM_INSTRUCTION },
+        { role: "user", content: `Estilo: ${style}. Pergunta: ${prompt}` }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || "Erro na API do ChatGPT");
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
 
 export const getGtmStrategyStream = async (
   prompt: string, 
   contextData: any, 
   onUpdate: (data: AIResponse) => void,
-  style: 'formal' | 'commercial' | 'persuasive' | 'simple' = 'commercial'
+  style: 'formal' | 'commercial' | 'persuasive' | 'simple' = 'commercial',
+  provider: 'gemini' | 'openai' = 'gemini'
 ) => {
   try {
-    const ai = getAIClient();
-    
-    const contextSummary = {
-      totalEmpresas: contextData.companies?.length || 0,
-      tarefasPendentes: contextData.tasks?.filter((t: any) => t.status !== 'DONE').length || 0,
-    };
+    if (provider === 'openai') {
+      const text = await callChatGPT(prompt, style);
+      onUpdate({ text, sources: [], isQuotaError: false, provider: 'openai' });
+      return text;
+    }
 
-    const fullPrompt = `Estilo: ${style}. Contexto GTM: ${JSON.stringify(contextSummary)}. Pergunta: ${prompt}`;
+    // Lógica original Gemini
+    const ai = getGeminiClient();
+    const contextSummary = { empresas: contextData.companies?.length || 0 };
 
-    // Trocamos para gemini-2.5-flash que é extremamente estável para ferramentas de busca (Grounding)
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [{ parts: [{ text: fullPrompt }] }],
+      contents: [{ parts: [{ text: `Pergunta: ${prompt} Contexto: ${JSON.stringify(contextSummary)}` }] }],
       config: {
         systemInstruction: SYSTEM_INSTRUCTION,
         tools: [{ googleSearch: {} }],
-        temperature: 0.4, // Reduzido para maior precisão e estrutura
+        temperature: 0.3,
       },
     });
 
     const text = response.text || "";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-    
     const sources = groundingChunks
       .filter((chunk: any) => chunk.web)
-      .map((chunk: any) => ({
-        title: chunk.web.title,
-        uri: chunk.web.uri
-      }));
+      .map((chunk: any) => ({ title: chunk.web.title, uri: chunk.web.uri }));
 
-    onUpdate({ text, sources });
+    onUpdate({ text, sources, isQuotaError: false, provider: 'gemini' });
     return text;
 
   } catch (error: any) {
-    console.error("Erro no Gemini:", error);
-    
-    // Fornecemos um feedback mais específico baseado no erro real
-    let errorMessage = "ERRO DE CONEXÃO COM A INTELIGÊNCIA.";
-    if (error.message?.includes("429")) errorMessage = "LIMITE DE COTAS EXCEDIDO. AGUARDE UM MOMENTO.";
-    if (error.message?.includes("403")) errorMessage = "CHAVE DE API SEM PERMISSÃO PARA BUSCA NO GOOGLE.";
-    if (error.message?.includes("404")) errorMessage = "MODELO NÃO ENCONTRADO OU INDISPONÍVEL.";
+    console.error("AI Service Error:", error);
+    const isQuota = error.message?.includes("429") || error.message?.includes("quota");
     
     onUpdate({ 
-      text: `${errorMessage}\n\nDetalhe técnico: ${error.message || 'Erro desconhecido'}`, 
-      sources: [] 
+      text: isQuota 
+        ? "LIMITE DE COTAS NO GEMINI ATINGIDO. Sugestão: Alterne para o motor 'ChatGPT' no topo da tela ou aguarde 60 segundos."
+        : `ERRO: ${error.message}`, 
+      sources: [],
+      isQuotaError: isQuota,
+      provider
     });
     return null;
   }
