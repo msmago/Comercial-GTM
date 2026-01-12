@@ -9,11 +9,27 @@ import {
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ottzppnrctbrtwsfgidr.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'sb_publishable_RDXC_dqs-bANRVCa0klJFA_Ehm0dlpc';
 
-console.log("DEBUG: Inicializando Supabase Client...");
-console.log("DEBUG: URL configurada:", SUPABASE_URL);
-console.log("DEBUG: Key presente:", !!SUPABASE_ANON_KEY);
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const FULL_SETUP_SQL = `
+-- COPIE E EXECUTE ISTO NO SQL EDITOR DO SUPABASE PARA CRIAR AS TABELAS:
+
+CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT, email TEXT UNIQUE, password TEXT, role TEXT DEFAULT 'USER', created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS companies (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID REFERENCES users(id), name TEXT, status TEXT, target_ies TEXT, contacts JSONB DEFAULT '[]', created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS tasks (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID REFERENCES users(id), title TEXT, description TEXT, status TEXT, priority TEXT, due_date TIMESTAMPTZ, created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS commercial_events (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), title TEXT, description TEXT, event_date TIMESTAMPTZ, event_type TEXT, task_id UUID REFERENCES tasks(id), created_by TEXT, created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS google_sheets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID REFERENCES users(id), title TEXT, url TEXT, category TEXT, description TEXT, created_at TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS inventory (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT, category TEXT, quantity INTEGER DEFAULT 0, min_quantity INTEGER DEFAULT 0, last_update TIMESTAMPTZ DEFAULT now());
+CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID REFERENCES users(id), action TEXT, entity TEXT, entity_id TEXT, timestamp TIMESTAMPTZ DEFAULT now(), details TEXT);
+
+ALTER TABLE users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE companies DISABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE commercial_events DISABLE ROW LEVEL SECURITY;
+ALTER TABLE google_sheets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE inventory DISABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs DISABLE ROW LEVEL SECURITY;
+`;
 
 interface AppState {
   companies: Company[];
@@ -57,6 +73,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loading: true,
   });
 
+  const handleError = (error: any, context: string) => {
+    console.error(`ERRO [${context}]:`, error);
+    
+    // Erro de tabela inexistente
+    if (error.code === '42P01') {
+      console.warn("%c TABELA NÃO ENCONTRADA!", "color: orange; font-weight: bold; font-size: 16px;");
+      console.log("Você precisa criar as tabelas no Supabase. Copie o código abaixo e cole no SQL Editor:");
+      console.log(FULL_SETUP_SQL);
+      return { success: false, error: { ...error, message: "Tabelas do banco de dados não foram criadas. Verifique o console do navegador para o script de correção." } };
+    }
+
+    // Erro de RLS
+    if (error.code === '42501' || error.message?.includes('row-level security')) {
+      console.warn("BLOQUEIO DE SEGURANÇA (RLS). Execute o comando SQL no Supabase para liberar.");
+      return { success: false, error: { ...error, message: "Erro de Permissão (RLS). Execute o script de correção no Supabase." } };
+    }
+
+    return { success: false, error };
+  };
+
   const fetchData = useCallback(async (currentUser: User | null) => {
     if (!currentUser) {
       setState(prev => ({ ...prev, loading: false }));
@@ -64,7 +100,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     try {
-      console.log(`DEBUG: Carregando dados para o usuário ${currentUser.id}...`);
       const [
         resCompanies,
         resTasks,
@@ -80,6 +115,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.from('google_sheets').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false }),
         supabase.from('audit_logs').select('*').eq('user_id', currentUser.id).order('timestamp', { ascending: false }).limit(50)
       ]);
+
+      // Verificar se alguma resposta deu erro de "relação não existe"
+      if (resTasks.error?.code === '42P01') {
+        handleError(resTasks.error, 'fetchData Initial');
+        setState(prev => ({ ...prev, loading: false }));
+        return;
+      }
 
       setState(prev => ({
         ...prev,
@@ -136,92 +178,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const upsertTask = async (task: Partial<Task>) => {
     if (!state.user) return { success: false, error: "Usuário não logado" };
-    
-    const payload = {
-      user_id: state.user.id,
-      title: task.title,
-      description: task.description,
-      status: task.status || TaskStatus.TODO,
-      priority: task.priority || TaskPriority.MEDIUM,
-      due_date: task.date || null
-    };
-    
+    const payload: any = { user_id: state.user.id, title: task.title, description: task.description || '', status: task.status || TaskStatus.TODO, priority: task.priority || TaskPriority.MEDIUM, due_date: task.date || null };
     try {
       let result;
-      if (task.id && task.id !== "") {
-        console.log("DEBUG: Atualizando tarefa existente ID:", task.id);
-        result = await supabase.from('tasks').update(payload).eq('id', task.id);
-      } else {
-        console.log("DEBUG: Inserindo nova tarefa...");
-        result = await supabase.from('tasks').insert([payload]).select().single();
-      }
-
-      if (result.error) {
-        console.error("DEBUG: Erro Supabase em upsertTask:", result.error);
-        return { success: false, error: result.error };
-      }
-
+      if (task.id && task.id !== "") result = await supabase.from('tasks').update(payload).eq('id', task.id).eq('user_id', state.user.id);
+      else result = await supabase.from('tasks').insert([payload]).select().single();
+      if (result.error) return handleError(result.error, 'upsertTask');
       const taskId = task.id || result.data?.id;
       if (task.date && taskId) {
-        await supabase.from('commercial_events').upsert([{
-          title: `Tarefa: ${task.title}`,
-          description: task.description,
-          event_date: task.date,
-          event_type: 'AUTO_TASK',
-          task_id: taskId,
-          created_by: state.user.name
-        }], { onConflict: 'task_id' });
+        await supabase.from('commercial_events').upsert([{ title: `Tarefa: ${task.title}`, description: task.description, event_date: task.date, event_type: 'AUTO_TASK', task_id: taskId, created_by: state.user.name }], { onConflict: 'task_id' });
       }
-
       await fetchData(state.user);
       return { success: true };
-    } catch (e: any) {
-      console.error("DEBUG: Exceção em upsertTask:", e);
-      return { success: false, error: e };
-    }
+    } catch (e: any) { return handleError(e, 'upsertTask Exception'); }
   };
 
   const upsertSheet = async (sheet: Partial<GoogleSheet>) => {
     if (!state.user) return { success: false, error: "Usuário não logado" };
-    
-    const payload = {
-      user_id: state.user.id,
-      title: sheet.title,
-      url: sheet.url,
-      category: sheet.category,
-      description: sheet.description || ''
-    };
-    
-    console.log("DEBUG: Preparando payload de Planilha...");
-    console.table(payload);
-
+    const payload: any = { user_id: state.user.id, title: sheet.title, url: sheet.url, category: sheet.category, description: sheet.description || '' };
     try {
       let result;
-      if (sheet.id && sheet.id !== "") {
-        console.log("DEBUG: Atualizando planilha existente ID:", sheet.id);
-        result = await supabase.from('google_sheets').update(payload).eq('id', sheet.id);
-      } else {
-        console.log("DEBUG: Inserindo nova planilha no banco...");
-        result = await supabase.from('google_sheets').insert([payload]).select();
-      }
-
-      if (result.error) {
-        console.error("DEBUG: Erro Supabase em upsertSheet:", result.error);
-        return { success: false, error: result.error };
-      }
-
-      console.log("DEBUG: Planilha salva com sucesso. Recarregando...");
+      if (sheet.id && sheet.id !== "") result = await supabase.from('google_sheets').update(payload).eq('id', sheet.id).eq('user_id', state.user.id);
+      else result = await supabase.from('google_sheets').insert([payload]).select();
+      if (result.error) return handleError(result.error, 'upsertSheet');
       await fetchData(state.user);
       return { success: true };
-    } catch (e: any) {
-      console.error("DEBUG: Exceção em upsertSheet:", e);
-      return { success: false, error: e };
-    }
+    } catch (e: any) { return handleError(e, 'upsertSheet Exception'); }
+  };
+
+  const deleteSheet = async (id: string) => {
+    if (!state.user) return;
+    await supabase.from('google_sheets').delete().eq('id', id).eq('user_id', state.user.id);
+    await fetchData(state.user);
+  };
+
+  const deleteTask = async (id: string) => {
+    if (!state.user) return;
+    await supabase.from('tasks').delete().eq('id', id).eq('user_id', state.user.id);
+    await supabase.from('commercial_events').delete().eq('task_id', id);
+    await fetchData(state.user);
   };
 
   const login = async (e: string, p: string) => {
     const { data, error } = await supabase.from('users').select('*').eq('email', e).eq('password', p).single();
-    if (error || !data) return { success: false, message: 'Credenciais inválidas' };
+    if (error || !data) return { success: false, message: 'Credenciais inválidas ou Usuário não existe' };
     const u: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
     setState(prev => ({ ...prev, user: u }));
     localStorage.setItem('gtm_pro_user', JSON.stringify(u));
@@ -231,7 +231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const register = async (n: string, e: string, p: string) => {
     const { data, error } = await supabase.from('users').insert([{ name: n, email: e, password: p, role: 'USER' }]).select().single();
-    if (error) return { success: false, message: 'Erro ao registrar' };
+    if (error) return { success: false, message: 'Erro ao registrar (E-mail já pode existir)' };
     const u: User = { id: data.id, name: data.name, email: data.email, role: data.role as any };
     setState(prev => ({ ...prev, user: u }));
     localStorage.setItem('gtm_pro_user', JSON.stringify(u));
@@ -244,30 +244,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('gtm_pro_user');
   };
 
-  const deleteTask = async (id: string) => {
-    await supabase.from('tasks').delete().eq('id', id);
-    await supabase.from('commercial_events').delete().eq('task_id', id);
-    if (state.user) await fetchData(state.user);
-  };
-
-  const deleteSheet = async (id: string) => {
-    await supabase.from('google_sheets').delete().eq('id', id);
-    if (state.user) await fetchData(state.user);
-  };
-
   const upsertCompany = async (c: Partial<Company>) => {
     if (!state.user) return { success: false, error: "Sem usuário" };
     const p = { user_id: state.user.id, name: c.name, status: c.status, target_ies: c.targetIES, contacts: c.contacts };
     let res;
-    if (c.id) res = await supabase.from('companies').update(p).eq('id', c.id);
+    if (c.id) res = await supabase.from('companies').update(p).eq('id', c.id).eq('user_id', state.user.id);
     else res = await supabase.from('companies').insert([p]);
+    if (res.error) return handleError(res.error, 'upsertCompany');
     await fetchData(state.user);
-    return { success: res.error ? false : true, error: res.error };
+    return { success: true };
   };
 
   const deleteCompany = async (id: string) => {
-    await supabase.from('companies').delete().eq('id', id);
-    if (state.user) await fetchData(state.user);
+    if (!state.user) return;
+    await supabase.from('companies').delete().eq('id', id).eq('user_id', state.user.id);
+    await fetchData(state.user);
   };
 
   const upsertEvent = async (e: Partial<CommercialEvent>) => {
