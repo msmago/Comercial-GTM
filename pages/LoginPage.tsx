@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { useStore } from '../store';
+import { useAuth } from '../modules/auth/auth.store';
 import { ShieldCheck, ArrowRight, User as UserIcon, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Loader2, Star } from 'lucide-react';
 
 const LoginPage = () => {
@@ -12,7 +12,7 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register } = useStore();
+  const { login, register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,12 +20,13 @@ const LoginPage = () => {
     setIsLoading(true);
 
     try {
+      let success = false;
       if (isLogin) {
-        const result = await login(email, password);
-        if (!result.success) setError(result.message);
+        success = await login(email, password);
+        if (!success) setError('E-mail ou senha incorretos.');
       } else {
-        const result = await register(name, email, password);
-        if (!result.success) setError(result.message);
+        success = await register(name, email, password);
+        if (!success) setError('Erro ao criar conta. Tente outro e-mail.');
       }
     } catch (err) {
       setError('Ocorreu um erro inesperado. Tente novamente.');
@@ -44,12 +45,11 @@ const LoginPage = () => {
           <div className="w-28 h-28 bg-gradient-to-br from-blue-600 to-blue-800 rounded-[32px] flex items-center justify-center shadow-2xl shadow-blue-500/30 mb-8 border border-white/10 transform -rotate-3 hover:rotate-0 transition-all duration-700 group-hover:scale-105">
             <Star size={48} className="text-white fill-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter mb-1 italic">
-            GTM <span className="text-blue-500 not-italic">PRO</span>
+          <h1 className="text-5xl font-black tracking-tighter mb-1 italic flex items-center gap-1">
+            <span className="text-slate-950">GTM</span> 
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600 not-italic">PRO</span>
           </h1>
-          <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.4em] mt-1 text-center">
-            {isLogin ? 'Commercial Intel System' : 'Join Elite Operations'}
-          </p>
+          {/* Tagline removida conforme solicitação */}
         </div>
 
         {error && (
@@ -78,7 +78,6 @@ const LoginPage = () => {
               </div>
             </div>
           )}
-
           <div className="space-y-2">
             <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">ID de Acesso (E-mail)</label>
             <div className="relative group">
@@ -93,11 +92,9 @@ const LoginPage = () => {
               />
             </div>
           </div>
-
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-0.5">
               <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave de Segurança</label>
-              {isLogin && <button type="button" className="text-[9px] font-black text-blue-500/50 uppercase tracking-widest hover:text-blue-400">Esqueceu?</button>}
             </div>
             <div className="relative group">
               <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 transition-colors ${isLogin ? 'group-focus-within:text-blue-500' : 'group-focus-within:text-emerald-500'}`} size={18} />
@@ -118,7 +115,6 @@ const LoginPage = () => {
               </button>
             </div>
           </div>
-          
           <div className="pt-6">
             <button
               type="submit"
@@ -140,7 +136,6 @@ const LoginPage = () => {
             </button>
           </div>
         </form>
-
         <div className="mt-8 text-center">
           <button 
             type="button"
@@ -153,7 +148,6 @@ const LoginPage = () => {
             {isLogin ? 'Solicitar Novo Acesso Operacional' : 'Voltar para Login Seguro'}
           </button>
         </div>
-
         <div className="mt-12 pt-8 border-t border-slate-900 flex flex-col items-center gap-4 relative z-10">
           <div className="flex items-center gap-2 text-[8px] text-slate-600 font-black uppercase tracking-[0.3em]">
             <ShieldCheck size={12} className="text-blue-500" />

@@ -20,6 +20,14 @@ export enum TaskPriority {
   HIGH = 'HIGH'
 }
 
+export interface KanbanColumn {
+  id: string;
+  userId: string;
+  title: string;
+  color: string;
+  order: number;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -44,7 +52,7 @@ export interface Task {
   userId: string; // Vínculo de propriedade
   title: string;
   description: string;
-  status: TaskStatus;
+  status: string; // Agora referenciando o ID da KanbanColumn
   priority: TaskPriority;
   date?: string; // ISO string
   createdAt: string;
