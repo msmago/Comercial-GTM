@@ -145,14 +145,19 @@ export const KanbanService = {
         if (error) throw error;
         
         if (task.date && data?.id) {
-          await supabase.from('commercial_events').insert([{ 
-            title: `Ticket: ${task.title}`, 
-            description: task.description, 
-            event_date: task.date, 
-            event_type: 'AUTO_TASK', 
-            task_id: data.id,
-            user_id: userId
-          }]).catch(() => {});
+          // Usando try-catch isolado para o evento automático para não quebrar a criação da tarefa
+          try {
+            await supabase.from('commercial_events').insert([{ 
+              title: `Ticket: ${task.title}`, 
+              description: task.description, 
+              event_date: task.date, 
+              event_type: 'AUTO_TASK', 
+              task_id: data.id,
+              user_id: userId
+            }]);
+          } catch (eventError) {
+            console.warn("Falha ao criar evento automático no calendário:", eventError);
+          }
         }
       }
     } catch (err: any) {
