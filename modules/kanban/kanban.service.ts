@@ -19,6 +19,7 @@ export const KanbanService = {
         .order('order', { ascending: true });
 
       if (error) {
+        // Fallback para colunas locais se a tabela não existir ou erro de permissão
         if (error.code === '42P01' || error.message.includes('relation')) {
           return DEFAULT_COLUMNS.map((c, i) => ({
             id: `local-col-${i}`,
@@ -45,14 +46,15 @@ export const KanbanService = {
           .select();
         
         if (seedError) {
-          if (seedError.code === '409' || seedError.code === '23505') {
-             const { data: retryData } = await supabase
-              .from('kanban_columns')
-              .select('*')
-              .eq('user_id', userId)
-              .order('order', { ascending: true });
-             
-             if (retryData) return retryData.map(c => ({ id: c.id, userId: c.user_id, title: c.title, color: c.color, order: c.order }));
+          // Se falhar a inserção (ex: conflito), tenta ler uma última vez
+          const { data: retryData } = await supabase
+            .from('kanban_columns')
+            .select('*')
+            .eq('user_id', userId)
+            .order('order', { ascending: true });
+          
+          if (retryData && retryData.length > 0) {
+            return retryData.map(c => ({ id: c.id, userId: c.user_id, title: c.title, color: c.color, order: c.order }));
           }
           return DEFAULT_COLUMNS.map((c, i) => ({ id: `err-${i}`, userId, title: c.title, color: c.color, order: c.order }));
         }
@@ -137,8 +139,9 @@ export const KanbanService = {
 
   async deleteTask(userId: string, id: string) {
     try {
-      // Tenta apagar eventos relacionados primeiro para evitar erro de FK
+      // Primeiro apaga eventos relacionados (integridade referencial manual)
       await supabase.from('commercial_events').delete().eq('task_id', id);
+      
       const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', userId);
       if (error) throw error;
       return true;
@@ -156,7 +159,7 @@ export const KanbanService = {
       order: col.order || 0
     };
     try {
-      if (col.id && !col.id.includes('local')) {
+      if (col.id && !col.id.includes('local') && !col.id.includes('err') && !col.id.includes('temp')) {
         const { error } = await supabase.from('kanban_columns').update(payload).eq('id', col.id).eq('user_id', userId);
         if (error) throw error;
       } else {
@@ -170,7 +173,7 @@ export const KanbanService = {
   },
 
   async deleteColumn(userId: string, id: string) {
-    if (id.includes('local')) return;
+    if (id.includes('local') || id.includes('err') || id.includes('temp')) return;
     try {
       const { error } = await supabase.from('kanban_columns').delete().eq('id', id).eq('user_id', userId);
       if (error) throw error;

@@ -1,13 +1,12 @@
 
 /**
  * Arquivo de tipos globais.
- * As definições específicas de domínio foram movidas para seus respectivos módulos em /modules.
- * Este arquivo permanece apenas para compatibilidade ou tipos compartilhados de baixo nível.
+ * Definições movidas para módulos específicos em /modules para evitar conflitos.
  */
 
-export type Role = 'ADMIN' | 'MANAGER' | 'USER';
+export type UserRole = 'ADMIN' | 'MANAGER' | 'USER';
 
-export interface GlobalConfig {
+export interface AppConfig {
+  apiUrl: string;
   version: string;
-  env: string;
 }
