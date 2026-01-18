@@ -40,7 +40,6 @@ const CalendarPage = () => {
   const handleOpenModal = (event?: CommercialEvent) => {
     if (event) {
       setEditingEvent(event);
-      // Ajusta o dia selecionado para o dia do evento ao editar
       setSelectedDay(new Date(event.date));
     } else {
       setEditingEvent(null);
@@ -55,7 +54,6 @@ const CalendarPage = () => {
     setIsSaving(true);
     const formData = new FormData(e.target as HTMLFormElement);
     
-    // Mantém a data original se estiver editando, ou usa a selecionada
     const eventDate = editingEvent 
       ? new Date(editingEvent.date)
       : new Date(Date.UTC(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), 12, 0, 0));
@@ -77,7 +75,7 @@ const CalendarPage = () => {
       setShowModal(false);
       setEditingEvent(null);
     } else {
-      alert(`Falha no Registro GTM: ${result.error}`);
+      console.error("Erro ao salvar:", result.error);
     }
   };
 
@@ -127,7 +125,7 @@ const CalendarPage = () => {
                   </span>
                   <div className="mt-3 space-y-1.5">
                     {dayEvents.slice(0, 3).map(e => (
-                      <div key={e.id} className="text-[8px] font-black p-1.5 rounded-lg border truncate uppercase tracking-tighter bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20">
+                      <div key={e.id} className="text-[8px] font-black p-1.5 rounded-lg border truncate uppercase tracking-tighter bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:border-blue-500/20 hover:scale-105 transition-transform">
                         {e.time ? `[${e.time}] ` : ''}{e.title}
                       </div>
                     ))}
@@ -157,16 +155,16 @@ const CalendarPage = () => {
                   <div className="flex flex-col gap-1">
                     <h4 className="font-black text-slate-950 dark:text-slate-100 text-base uppercase tracking-tight italic leading-tight">{event.title}</h4>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
                     <button 
-                      onClick={() => handleOpenModal(event)} 
-                      className="p-2 hover:bg-blue-500 hover:text-white rounded-xl text-slate-400 transition-all"
+                      onClick={(e) => { e.stopPropagation(); handleOpenModal(event); }} 
+                      className="p-2.5 bg-white dark:bg-slate-800 hover:bg-blue-600 hover:text-white rounded-xl text-slate-400 transition-all shadow-sm border border-slate-100 dark:border-slate-700"
                     >
                       <Edit2 size={16} />
                     </button>
                     <button 
-                      onClick={() => removeEvent(event.id)} 
-                      className="p-2 hover:bg-rose-500 hover:text-white rounded-xl text-slate-400 transition-all"
+                      onClick={(e) => { e.stopPropagation(); removeEvent(event.id); }} 
+                      className="p-2.5 bg-white dark:bg-slate-800 hover:bg-rose-600 hover:text-white rounded-xl text-slate-400 transition-all shadow-sm border border-slate-100 dark:border-slate-700"
                     >
                       <Trash2 size={16} />
                     </button>

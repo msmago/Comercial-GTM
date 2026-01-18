@@ -38,7 +38,7 @@ export interface Contact {
 
 export interface Company {
   id: string;
-  userId: string; // Vínculo de propriedade
+  userId: string;
   name: string;
   status: PipelineStatus;
   targetIES: string;
@@ -49,23 +49,13 @@ export interface Company {
 
 export interface Task {
   id: string;
-  userId: string; // Vínculo de propriedade
+  userId: string;
   title: string;
   description: string;
-  status: string; // Agora referenciando o ID da KanbanColumn
+  status: string;
   priority: TaskPriority;
-  date?: string; // ISO string
+  date?: string;
   createdAt: string;
-}
-
-export interface CommercialEvent {
-  id: string;
-  title: string;
-  description: string;
-  date: string; // ISO string
-  type: 'MANUAL' | 'AUTO_TASK';
-  taskId?: string;
-  createdBy: string; // Nome para exibição no calendário compartilhado
 }
 
 export interface InventoryItem {
@@ -79,22 +69,12 @@ export interface InventoryItem {
 
 export interface GoogleSheet {
   id: string;
-  userId: string; // Vínculo de propriedade
+  userId: string;
   title: string;
   url: string;
   category: string;
   description?: string;
   createdAt: string;
-}
-
-export interface AuditLog {
-  id: string;
-  userId: string;
-  action: string;
-  entity: string;
-  entityId: string;
-  timestamp: string;
-  details: string;
 }
 
 export interface User {
