@@ -20,13 +20,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved) {
         try {
           const userObj = JSON.parse(saved);
-          // Validação crítica: verifica se o usuário ainda existe no banco de dados
           const isValid = await AuthService.validateUser(userObj.id);
           
           if (isValid) {
             setState({ user: userObj, loading: false, error: null });
           } else {
-            console.warn("Sessão inválida ou usuário deletado do banco. Limpando cache...");
             logout();
           }
         } catch (e) {
@@ -41,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, pass: string) => {
-    setState(p => ({ ...p, loading: true }));
+    setState(p => ({ ...p, loading: true, error: null }));
     const { data, error } = await AuthService.login(email, pass);
     if (data) {
       setState({ user: data, loading: false, error: null });
@@ -53,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (name: string, email: string, pass: string) => {
-    setState(p => ({ ...p, loading: true }));
+    setState(p => ({ ...p, loading: true, error: null }));
     const { data, error } = await AuthService.register(name, email, pass);
     if (data) {
       setState({ user: data, loading: false, error: null });
