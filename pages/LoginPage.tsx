@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../modules/auth/auth.store';
-import { ShieldCheck, ArrowRight, User as UserIcon, Mail, Lock, Eye, EyeOff, UserPlus, AlertCircle, Loader2, Star } from 'lucide-react';
+import { ShieldCheck, ArrowRight, User as UserIcon, Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, Star } from 'lucide-react';
 
 const LoginPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -9,29 +10,35 @@ const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   
-  const { login, register } = useAuth();
+  const { user, login, register, error: authError, loading, clearError } = useAuth();
+  const navigate = useNavigate();
+
+  // Se o usuário já estiver logado, redireciona para o dashboard imediatamente
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  useEffect(() => {
+    clearError();
+  }, [isLogin, clearError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
+    let success = false;
+    
+    if (isLogin) {
+      success = await login(email, password);
+    } else {
+      success = await register(name, email, password);
+    }
 
-    try {
-      let success = false;
-      if (isLogin) {
-        success = await login(email, password);
-        if (!success) setError('E-mail ou senha incorretos.');
-      } else {
-        success = await register(name, email, password);
-        if (!success) setError('Erro ao criar conta. Tente outro e-mail.');
-      }
-    } catch (err) {
-      setError('Ocorreu um erro inesperado. Tente novamente.');
-    } finally {
-      setIsLoading(false);
+    // Se a operação foi bem sucedida, o useEffect acima cuidará do redirecionamento,
+    // mas forçamos aqui também para garantir uma resposta imediata da UI.
+    if (success) {
+      navigate('/', { replace: true });
     }
   };
 
@@ -46,18 +53,17 @@ const LoginPage = () => {
             <Star size={48} className="text-white fill-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" />
           </div>
           <h1 className="text-5xl font-black tracking-tighter mb-1 italic flex items-center gap-1">
-            <span className="text-slate-950">GTM</span> 
+            <span className="text-slate-950 dark:text-white">GTM</span> 
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600 not-italic">PRO</span>
           </h1>
-          {/* Tagline removida conforme solicitação */}
         </div>
 
-        {error && (
+        {authError && (
           <div className="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 text-rose-500 text-xs font-bold animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="p-1 bg-rose-500/20 rounded-lg">
               <AlertCircle size={16} />
             </div>
-            {error}
+            {authError}
           </div>
         )}
 
@@ -72,7 +78,7 @@ const LoginPage = () => {
                   required={!isLogin}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-emerald-500/50 outline-none text-sm font-medium transition-all"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 focus:ring-emerald-500/50 outline-none text-sm font-medium transition-all text-white"
                   placeholder="Nome do Operador"
                 />
               </div>
@@ -87,15 +93,13 @@ const LoginPage = () => {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`w-full pl-12 pr-4 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm font-medium transition-all ${isLogin ? 'focus:ring-blue-500/50' : 'focus:ring-emerald-500/50'}`}
+                className={`w-full pl-12 pr-4 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm font-medium transition-all text-white ${isLogin ? 'focus:ring-blue-500/50' : 'focus:ring-emerald-500/50'}`}
                 placeholder="operador@gtmpro.com"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <div className="flex items-center justify-between mb-0.5">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave de Segurança</label>
-            </div>
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Chave de Segurança</label>
             <div className="relative group">
               <Lock className={`absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 transition-colors ${isLogin ? 'group-focus-within:text-blue-500' : 'group-focus-within:text-emerald-500'}`} size={18} />
               <input
@@ -103,7 +107,7 @@ const LoginPage = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className={`w-full pl-12 pr-12 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm font-medium transition-all ${isLogin ? 'focus:ring-blue-500/50' : 'focus:ring-emerald-500/50'}`}
+                className={`w-full pl-12 pr-12 py-4 bg-slate-900/60 border border-slate-800 rounded-2xl focus:ring-2 outline-none text-sm font-medium transition-all text-white ${isLogin ? 'focus:ring-blue-500/50' : 'focus:ring-emerald-500/50'}`}
                 placeholder="••••••••"
               />
               <button 
@@ -118,14 +122,14 @@ const LoginPage = () => {
           <div className="pt-6">
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={loading}
               className={`w-full text-white font-black text-[11px] uppercase tracking-[0.3em] py-5 rounded-[22px] flex items-center justify-center gap-3 transition-all transform active:scale-95 shadow-2xl disabled:opacity-50 ${
                 isLogin 
                 ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/20 hover:shadow-blue-500/40' 
                 : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20 hover:shadow-emerald-500/40'
               }`}
             >
-              {isLoading ? (
+              {loading ? (
                 <Loader2 className="animate-spin" size={18} />
               ) : (
                 <>
@@ -139,10 +143,7 @@ const LoginPage = () => {
         <div className="mt-8 text-center">
           <button 
             type="button"
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-            }}
+            onClick={() => setIsLogin(!isLogin)}
             className="text-[10px] font-black text-slate-500 hover:text-white uppercase tracking-widest transition-all hover:tracking-[0.2em]"
           >
             {isLogin ? 'Solicitar Novo Acesso Operacional' : 'Voltar para Login Seguro'}

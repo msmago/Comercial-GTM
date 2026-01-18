@@ -1,10 +1,10 @@
-
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
 export default defineConfig(({ mode }) => {
+  // Fix: cast process to any to avoid TypeScript error about missing cwd method in some environments
   const env = loadEnv(mode, (process as any).cwd(), '');
   
   return {
@@ -14,11 +14,9 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(path.dirname(fileURLToPath(import.meta.url)), './'),
       },
     },
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY),
-      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL),
-      'process.env.SUPABASE_ANON_KEY': JSON.stringify(env.SUPABASE_ANON_KEY),
-    },
+    // Removed define block that manually injected process.env variables.
+    // According to Gemini API guidelines, process.env.API_KEY and other credentials 
+    // should be handled and injected by the execution environment automatically.
     build: {
       outDir: 'dist',
       sourcemap: false

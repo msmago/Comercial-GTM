@@ -5,20 +5,29 @@ import { User } from './auth.types';
 export const AuthService = {
   async login(email: string, password: string): Promise<{ data: User | null; error: any }> {
     try {
+      const cleanEmail = email.trim();
+      const cleanPassword = password.trim();
+
+      if (!cleanEmail || !cleanPassword) {
+        return { data: null, error: { message: 'E-mail e senha são obrigatórios.' } };
+      }
+
+      // ilike faz a comparação insensível a maiúsculas/minúsculas para o e-mail
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', email)
-        .eq('password', password)
+        .ilike('email', cleanEmail)
+        .eq('password', cleanPassword)
         .maybeSingle();
 
       if (error) {
-        console.error("Supabase Login Error:", error);
-        return { data: null, error };
+        console.error("DEBUG - Erro de Banco:", error);
+        return { data: null, error: { message: `Erro de conexão: ${error.message}` } };
       }
 
       if (!data) {
-        return { data: null, error: { message: 'Credenciais inválidas ou usuário não encontrado.' } };
+        console.warn(`DEBUG - Falha de login para: ${cleanEmail}`);
+        return { data: null, error: { message: 'Credenciais inválidas. Verifique seu e-mail e senha.' } };
       }
       
       return { 
@@ -26,26 +35,36 @@ export const AuthService = {
         error: null 
       };
     } catch (err: any) {
-      console.error("Critical Auth Error:", err);
-      return { data: null, error: err };
+      console.error("DEBUG - Erro Crítico:", err);
+      return { data: null, error: { message: 'Serviço de autenticação indisponível no momento.' } };
     }
   },
 
   async register(name: string, email: string, password: string): Promise<{ data: User | null; error: any }> {
     try {
+      const cleanEmail = email.trim();
       const { data, error } = await supabase
         .from('users')
-        .insert([{ name, email, password, role: 'USER' }])
+        .insert([{ 
+          name: name.trim(), 
+          email: cleanEmail, 
+          password: password.trim(), 
+          role: 'USER' 
+        }])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("DEBUG - Erro de Cadastro:", error);
+        return { data: null, error: { message: error.message } };
+      }
+      
       return { 
         data: { id: data.id, name: data.name, email: data.email, role: data.role }, 
         error: null 
       };
     } catch (err: any) {
-      return { data: null, error: err };
+      return { data: null, error: { message: 'Falha ao processar registro.' } };
     }
   },
 
