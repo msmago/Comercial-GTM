@@ -92,10 +92,10 @@ const AIAgent = () => {
             <Globe size={32} className="text-white animate-pulse" />
           </div>
           <div>
-            <h2 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white uppercase leading-none">GTM AI Agent</h2>
+            <h2 className="text-3xl font-black italic tracking-tighter text-slate-950 dark:text-white uppercase leading-none">Analista IA</h2>
             <div className="flex items-center gap-2 mt-2">
               <span className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_blue]"></span>
-              <p className="text-slate-600 dark:text-slate-500 font-black text-[9px] uppercase tracking-[0.3em]">Google Gemini 3 Pro Elite</p>
+              <p className="text-slate-600 dark:text-slate-500 font-black text-[9px] uppercase tracking-[0.3em]">Motor Cognitivo Gemini 3 Pro</p>
             </div>
           </div>
         </div>
@@ -108,11 +108,11 @@ const AIAgent = () => {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white dark:bg-slate-900/40 p-8 rounded-[32px] border border-slate-200 dark:border-white/5 shadow-xl space-y-8">
-            <h4 className="font-black text-[10px] text-slate-700 dark:text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Lightbulb size={14} className="text-amber-500" /> Prompt Hacks</h4>
+            <h4 className="font-black text-[10px] text-slate-700 dark:text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Lightbulb size={14} className="text-amber-500" /> Sugestões</h4>
             <div className="space-y-3">
               {[
                 { label: "Análise de ROI", p: "Gere um plano de ROI para parcerias com IES." },
-                { label: "Roteiro Persuasivo", p: "Crie um roteiro de vendas focado em fechamento de convênios." }
+                { label: "Roteiro de Vendas", p: "Crie um roteiro de vendas focado em fechamento de convênios." }
               ].map((item, i) => (
                 <button key={i} onClick={() => handleConsult(item.p)} className="w-full text-left p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 hover:border-blue-600 transition-all group shadow-sm">
                   <span className="text-xs font-black text-slate-800 dark:text-slate-300 group-hover:text-blue-600 block leading-tight">{item.label}</span>
@@ -125,7 +125,7 @@ const AIAgent = () => {
         <div className="lg:col-span-3">
           <div className="bg-white dark:bg-slate-950/40 rounded-[40px] border border-slate-200 dark:border-white/5 shadow-2xl flex flex-col h-[700px] overflow-hidden">
             <div className="px-10 py-5 border-b border-slate-200 dark:border-slate-800/60 flex items-center justify-between bg-slate-50 dark:bg-slate-950/40">
-              <div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-100 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-500"><Cpu size={16} /></div><span className="text-[10px] font-black text-slate-800 dark:text-slate-400 uppercase tracking-[0.3em]">Módulo Cognitivo GTM</span></div>
+              <div className="flex items-center gap-3"><div className="p-2 rounded-lg bg-blue-100 dark:bg-cyan-500/10 text-blue-600 dark:text-cyan-500"><Cpu size={16} /></div><span className="text-[10px] font-black text-slate-800 dark:text-slate-400 uppercase tracking-[0.3em]">Cérebro GTM PRO</span></div>
               {response.text && (
                 <button onClick={() => { navigator.clipboard.writeText(response.text); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="flex items-center gap-2 px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-700 dark:text-slate-500 hover:text-blue-600 transition-all border border-slate-200 dark:border-slate-800 shadow-sm">
                   {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
@@ -145,16 +145,16 @@ const AIAgent = () => {
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-center opacity-30">
                   <Search size={48} className="text-slate-300 mb-6" />
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">IA Pronta para Consultoria</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Aguardando Consulta Estratégica</p>
                 </div>
               )}
             </div>
 
             <div className="p-8 bg-slate-50 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800/60 backdrop-blur-md">
               <form onSubmit={(e) => { e.preventDefault(); handleConsult(); }} className="flex items-center gap-4 bg-white dark:bg-slate-900/50 p-2 rounded-[24px] border border-slate-200 dark:border-slate-800 focus-within:border-blue-600 transition-all shadow-md">
-                <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Digite sua consulta estratégica..." className="flex-1 bg-transparent border-none outline-none px-6 py-3 text-slate-900 dark:text-slate-200 placeholder:text-slate-400 text-sm font-bold tracking-tight" />
+                <input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Digite sua dúvida estratégica..." className="flex-1 bg-transparent border-none outline-none px-6 py-3 text-slate-900 dark:text-slate-200 placeholder:text-slate-400 text-sm font-bold tracking-tight" />
                 <button disabled={loading || !prompt.trim()} type="submit" className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-[18px] transition-all shadow-lg font-black text-[10px] uppercase tracking-widest flex items-center gap-2">
-                  {loading ? <RefreshCw className="animate-spin" size={16} /> : <><Send size={16} /> Consultar</>}
+                  {loading ? <RefreshCw className="animate-spin" size={16} /> : <><Send size={16} /> Analisar</>}
                 </button>
               </form>
             </div>

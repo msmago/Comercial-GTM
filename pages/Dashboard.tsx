@@ -69,7 +69,7 @@ const Dashboard = () => {
     { name: 'CONTATADO', count: companies.filter(c => c.status === PipelineStatus.CONTACTED).length, color: '#3b82f6' },
     { name: 'NEGOCIAÇÃO', count: companies.filter(c => c.status === PipelineStatus.NEGOTIATION).length, color: '#8b5cf6' },
     { name: 'PARCEIRO', count: companies.filter(c => c.status === PipelineStatus.PARTNER).length, color: '#10b981' },
-    { name: 'CHURN', count: companies.filter(c => c.status === PipelineStatus.CHURN).length, color: '#f43f5e' },
+    { name: 'CANCELADO', count: companies.filter(c => c.status === PipelineStatus.CHURN).length, color: '#f43f5e' },
   ];
 
   const rankingData = useMemo(() => {
@@ -95,7 +95,7 @@ const Dashboard = () => {
           </h1>
           <div className="flex items-center gap-4 mt-8">
              <span className="w-12 h-px bg-slate-300 dark:bg-slate-800"></span>
-             <p className="text-slate-500 font-black uppercase text-[12px] tracking-[0.4em]">Visão Geral da Operação Comercial</p>
+             <p className="text-slate-500 font-black uppercase text-[12px] tracking-[0.4em]">Painel de Controle Operacional</p>
           </div>
         </div>
         <div className="flex items-center gap-6 bg-white dark:bg-slate-900 p-6 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-xl">
@@ -103,16 +103,16 @@ const Dashboard = () => {
               <Zap size={24} />
            </div>
            <div className="pr-8">
-              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mb-1">Status Sinc</p>
-              <p className="text-sm font-black text-slate-950 dark:text-white uppercase">Dados Ativos</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mb-1">Conexão</p>
+              <p className="text-sm font-black text-slate-950 dark:text-white uppercase">Dados Sincronizados</p>
            </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-        <StatCard title="Pipeline Ativo" value={totalCompanies} icon={Building2} color="bg-slate-950" trend="up" trendValue="+12.4%" />
-        <StatCard title="Agenda / Ações" value={events.length} icon={CalendarClock} color="bg-blue-600" trend="up" trendValue="+5.1%" />
-        <StatCard title="GTM Score" value={`${performanceGTM}%`} icon={Target} color="bg-indigo-600" trend="up" trendValue="High" />
+        <StatCard title="Funil Ativo" value={totalCompanies} icon={Building2} color="bg-slate-950" trend="up" trendValue="+12.4%" />
+        <StatCard title="Agenda Mensal" value={events.length} icon={CalendarClock} color="bg-blue-600" trend="up" trendValue="+5.1%" />
+        <StatCard title="Pontuação GTM" value={`${performanceGTM}%`} icon={Target} color="bg-indigo-600" trend="up" trendValue="Alta" />
         <StatCard title="Itens Críticos" value={inventory.filter(i => i.quantity < i.minQuantity).length} icon={AlertTriangle} color="bg-rose-600" />
       </div>
 
@@ -122,7 +122,6 @@ const Dashboard = () => {
             <span className="w-2.5 h-10 bg-blue-600 rounded-full"></span>
             Fluxo de Conversão (Funil)
           </h3>
-          {/* Container com altura mínima e posição relativa para o Recharts */}
           <div className="w-full h-[400px] min-h-[400px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart 
@@ -165,7 +164,7 @@ const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-[11px] font-black uppercase text-slate-950 dark:text-white truncate max-w-[120px]">{user.name}</p>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Consultor Sênior</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Consultor Especialista</p>
                   </div>
                 </div>
                 <div className="text-right">

@@ -12,6 +12,9 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Lista de administradores forçados via código (Emergency Access)
+const SUPER_ADMINS = ['viniciuspatricio28@gmail.com'];
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({ user: null, loading: true, error: null });
 
@@ -24,14 +27,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setState(prev => ({ ...prev, error: null }));
   }, []);
 
+  const processUserData = (user: User): User => {
+    // Override de role para emails específicos
+    if (SUPER_ADMINS.includes(user.email.toLowerCase().trim())) {
+      return { ...user, role: 'ADMIN' };
+    }
+    return user;
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const saved = localStorage.getItem('gtm_pro_user');
       if (saved) {
         try {
-          const userObj = JSON.parse(saved);
+          let userObj = JSON.parse(saved);
           const isValid = await AuthService.validateUser(userObj.id);
           if (isValid) {
+            // Aplica override se necessário na restauração da sessão
+            userObj = processUserData(userObj);
             setState({ user: userObj, loading: false, error: null });
           } else {
             logout();
@@ -51,8 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await AuthService.login(email, pass);
       if (data) {
-        setState({ user: data, loading: false, error: null });
-        localStorage.setItem('gtm_pro_user', JSON.stringify(data));
+        // Aplica override de role no momento do login
+        const finalUser = processUserData(data);
+        setState({ user: finalUser, loading: false, error: null });
+        localStorage.setItem('gtm_pro_user', JSON.stringify(finalUser));
         return true;
       }
       setState({ user: null, loading: false, error: error?.message || 'Falha na autenticação.' });
@@ -68,8 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { data, error } = await AuthService.register(name, email, pass);
       if (data) {
-        setState({ user: data, loading: false, error: null });
-        localStorage.setItem('gtm_pro_user', JSON.stringify(data));
+        // Aplica override de role também no registro se o email constar na lista
+        const finalUser = processUserData(data);
+        setState({ user: finalUser, loading: false, error: null });
+        localStorage.setItem('gtm_pro_user', JSON.stringify(finalUser));
         return true;
       }
       setState({ user: null, loading: false, error: error?.message || 'Falha ao registrar.' });

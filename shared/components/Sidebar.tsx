@@ -4,7 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Kanban as KanbanIcon, 
   Calendar as CalendarIcon, Package, FileSpreadsheet, 
-  BrainCircuit, Star, ChevronRight, LogOut 
+  BrainCircuit, Star, ChevronRight, LogOut, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../modules/auth/auth.store';
 
@@ -25,7 +25,7 @@ const SidebarLink = ({ to, icon: Icon, label, active }: { to: string, icon: any,
 
 const Sidebar = () => {
   const location = useLocation();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
     <aside className="hidden lg:flex flex-col w-80 bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800/60 sticky top-0 h-screen p-8 z-40">
@@ -39,23 +39,32 @@ const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex flex-col gap-3 flex-grow">
-        <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" active={location.pathname === '/'} />
-        <SidebarLink to="/crm" icon={Users} label="CRM" active={location.pathname === '/crm'} />
-        <SidebarLink to="/tasks" icon={KanbanIcon} label="Kanban" active={location.pathname === '/tasks'} />
+      <nav className="flex flex-col gap-3 flex-grow overflow-y-auto pr-2">
+        <SidebarLink to="/" icon={LayoutDashboard} label="Início" active={location.pathname === '/'} />
+        <SidebarLink to="/crm" icon={Users} label="Parceiros" active={location.pathname === '/crm'} />
+        <SidebarLink to="/tasks" icon={KanbanIcon} label="Fluxo" active={location.pathname === '/tasks'} />
         <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendário" active={location.pathname === '/calendar'} />
-        <SidebarLink to="/inventory" icon={Package} label="Logística" active={location.pathname === '/inventory'} />
+        <SidebarLink to="/inventory" icon={Package} label="Estoque" active={location.pathname === '/inventory'} />
         <SidebarLink to="/sheets" icon={FileSpreadsheet} label="Planilhas" active={location.pathname === '/sheets'} />
-        <div className="h-px bg-slate-100 dark:bg-slate-900 my-6 mx-2" />
-        <SidebarLink to="/ai" icon={BrainCircuit} label="GTM AI Agent" active={location.pathname === '/ai'} />
+        <SidebarLink to="/ai" icon={BrainCircuit} label="Analista IA" active={location.pathname === '/ai'} />
+
+        {user?.role === 'ADMIN' && (
+          <>
+            <div className="h-px bg-slate-100 dark:bg-slate-900 my-4 mx-2" />
+            <div className="px-5 mb-2">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Administração</span>
+            </div>
+            <SidebarLink to="/admin" icon={ShieldCheck} label="Painel Admin" active={location.pathname.startsWith('/admin')} />
+          </>
+        )}
       </nav>
 
-      <div className="mt-auto">
+      <div className="mt-auto pt-6">
         <button 
           onClick={logout}
           className="w-full flex items-center gap-4 px-6 py-5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[24px] text-slate-500 hover:text-rose-600 hover:border-rose-100 dark:hover:border-rose-900 transition-all font-black text-[10px] uppercase tracking-widest active:scale-95"
         >
-          <LogOut size={18} /> Sair da Operação
+          <LogOut size={18} /> Encerrar Operação
         </button>
       </div>
     </aside>

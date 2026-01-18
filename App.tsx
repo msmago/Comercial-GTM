@@ -7,6 +7,7 @@ import { CRMProvider } from './modules/crm/crm.store';
 import { InventoryProvider } from './modules/inventory/inventory.store';
 import { CalendarProvider } from './modules/calendar/calendar.store';
 import { SheetsProvider } from './modules/sheets/sheets.store';
+import { AdminProvider } from './modules/admin/admin.store';
 
 // Componentes Shared
 import Sidebar from './shared/components/Sidebar';
@@ -21,6 +22,8 @@ import CalendarPage from './pages/CalendarPage';
 import Inventory from './pages/Inventory';
 import Spreadsheets from './pages/Spreadsheets';
 import AIAgent from './pages/AIAgent';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminConsultants from './pages/AdminConsultants';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -54,19 +57,26 @@ const App = () => {
           <InventoryProvider>
             <CalendarProvider>
               <SheetsProvider>
-                <Router>
-                  <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
-                    <Route path="/crm" element={<ProtectedLayout><CRM /></ProtectedLayout>} />
-                    <Route path="/tasks" element={<ProtectedLayout><Tasks /></ProtectedLayout>} />
-                    <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
-                    <Route path="/inventory" element={<ProtectedLayout><Inventory /></ProtectedLayout>} />
-                    <Route path="/sheets" element={<ProtectedLayout><Spreadsheets /></ProtectedLayout>} />
-                    <Route path="/ai" element={<ProtectedLayout><AIAgent /></ProtectedLayout>} />
-                    <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </Router>
+                <AdminProvider>
+                  <Router>
+                    <Routes>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/" element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
+                      <Route path="/crm" element={<ProtectedLayout><CRM /></ProtectedLayout>} />
+                      <Route path="/tasks" element={<ProtectedLayout><Tasks /></ProtectedLayout>} />
+                      <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
+                      <Route path="/inventory" element={<ProtectedLayout><Inventory /></ProtectedLayout>} />
+                      <Route path="/sheets" element={<ProtectedLayout><Spreadsheets /></ProtectedLayout>} />
+                      <Route path="/ai" element={<ProtectedLayout><AIAgent /></ProtectedLayout>} />
+                      
+                      {/* Admin Routes */}
+                      <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />
+                      <Route path="/admin/consultants" element={<ProtectedLayout><AdminConsultants /></ProtectedLayout>} />
+                      
+                      <Route path="*" element={<Navigate to="/" replace />} />
+                    </Routes>
+                  </Router>
+                </AdminProvider>
               </SheetsProvider>
             </CalendarProvider>
           </InventoryProvider>

@@ -35,14 +35,24 @@ const Header = () => {
   const location = useLocation();
 
   const getPageTitle = () => {
+    if (location.pathname.startsWith('/admin')) return 'Gestão Estratégica';
     switch(location.pathname) {
       case '/': return 'Painel Analítico';
       case '/crm': return 'Gestão de Parceiros';
       case '/tasks': return 'Fluxo Operacional';
       case '/calendar': return 'Calendário Comercial';
-      case '/inventory': return 'Inventário Operacional';
-      case '/sheets': return 'Hub de Dados';
-      default: return 'GTM Intelligence';
+      case '/inventory': return 'Gestão de Estoque';
+      case '/sheets': return 'Central de Planilhas';
+      case '/ai': return 'Inteligência Artificial';
+      default: return 'Inteligência GTM';
+    }
+  };
+
+  const getRoleLabel = (role: string) => {
+    switch(role) {
+      case 'ADMIN': return 'Administrador';
+      case 'MANAGER': return 'Gerente';
+      default: return 'Consultor';
     }
   };
 
@@ -65,7 +75,7 @@ const Header = () => {
         <div className="flex items-center gap-4">
           <div className="text-right hidden md:block">
             <p className="text-[11px] font-black uppercase tracking-tight text-slate-950 dark:text-white leading-none">{user?.name}</p>
-            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Status {user?.role}</p>
+            <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-widest mt-1">Nível {getRoleLabel(user?.role || '')}</p>
           </div>
           <div className="w-12 h-12 rounded-[20px] bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center font-black text-slate-950 dark:text-white text-lg shadow-sm">
             {user?.name.charAt(0)}
