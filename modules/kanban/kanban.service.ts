@@ -19,11 +19,10 @@ export const KanbanService = {
         .order('order', { ascending: true });
 
       if (error) {
-        const msg = error.message || JSON.stringify(error);
-        if (msg.includes('relation') || msg.includes('row-level security') || error.code === '42P01') {
+        if (error.code === '42P01' || error.message.includes('relation')) {
           return DEFAULT_COLUMNS.map((c, i) => ({
             id: `local-col-${i}`,
-            userId: userId,
+            userId,
             title: c.title,
             color: c.color,
             order: c.order
@@ -32,7 +31,6 @@ export const KanbanService = {
         return [];
       }
 
-      // Se não houver colunas, tenta semear.
       if (!data || data.length === 0) {
         const seed = DEFAULT_COLUMNS.map(c => ({ 
           user_id: userId,
@@ -41,45 +39,22 @@ export const KanbanService = {
           order: c.order
         }));
 
-        // Usamos insert mas lidamos com possíveis erros de conflito 409 se outra requisição já tiver semeado.
         const { data: seededData, error: seedError } = await supabase
           .from('kanban_columns')
           .insert(seed)
           .select();
         
         if (seedError) {
-          const msg = seedError.message || JSON.stringify(seedError);
-          
-          // Se for conflito (409) ou duplicata, tentamos ler novamente as colunas que acabaram de ser criadas.
           if (seedError.code === '409' || seedError.code === '23505') {
              const { data: retryData } = await supabase
               .from('kanban_columns')
               .select('*')
               .eq('user_id', userId)
               .order('order', { ascending: true });
-             if (retryData && retryData.length > 0) {
-                return retryData.map(c => ({
-                  id: c.id, userId: c.user_id, title: c.title, color: c.color, order: c.order
-                }));
-             }
+             
+             if (retryData) return retryData.map(c => ({ id: c.id, userId: c.user_id, title: c.title, color: c.color, order: c.order }));
           }
-
-          if (seedError.code === '23503' || msg.includes('foreign key constraint')) {
-            return DEFAULT_COLUMNS.map((c, i) => ({
-              id: `temp-col-${i}`,
-              userId: userId,
-              title: c.title,
-              color: c.color,
-              order: c.order
-            }));
-          }
-          return DEFAULT_COLUMNS.map((c, i) => ({
-            id: `err-col-${i}`,
-            userId: userId,
-            title: c.title,
-            color: c.color,
-            order: c.order
-          }));
+          return DEFAULT_COLUMNS.map((c, i) => ({ id: `err-${i}`, userId, title: c.title, color: c.color, order: c.order }));
         }
         
         return (seededData || []).map(c => ({
@@ -90,14 +65,9 @@ export const KanbanService = {
       return data.map(c => ({
         id: c.id, userId: c.user_id, title: c.title, color: c.color, order: c.order
       }));
-    } catch (err: any) {
-      return DEFAULT_COLUMNS.map((c, i) => ({
-        id: `critical-col-${i}`,
-        userId: userId,
-        title: c.title,
-        color: c.color,
-        order: c.order
-      }));
+    } catch (err) {
+      console.error("Critical Kanban error:", err);
+      return [];
     }
   },
 
@@ -121,13 +91,13 @@ export const KanbanService = {
         date: t.due_date, 
         createdAt: t.created_at
       }));
-    } catch (err: any) {
+    } catch (err) {
       return [];
     }
   },
 
   async upsertTask(userId: string, task: Partial<Task>) {
-    const payload: any = {
+    const payload = {
       user_id: userId,
       title: task.title,
       description: task.description,
@@ -145,7 +115,6 @@ export const KanbanService = {
         if (error) throw error;
         
         if (task.date && data?.id) {
-          // Usando try-catch isolado para o evento automático para não quebrar a criação da tarefa
           try {
             await supabase.from('commercial_events').insert([{ 
               title: `Ticket: ${task.title}`, 
@@ -155,24 +124,27 @@ export const KanbanService = {
               task_id: data.id,
               user_id: userId
             }]);
-          } catch (eventError) {
-            console.warn("Falha ao criar evento automático no calendário:", eventError);
+          } catch (e) {
+            console.warn("Event auto-creation skipped", e);
           }
         }
       }
+      return { success: true };
     } catch (err: any) {
-      throw new Error(err.message || JSON.stringify(err));
+      return { success: false, error: err.message };
     }
   },
 
   async deleteTask(userId: string, id: string) {
     try {
+      // Tenta apagar eventos relacionados primeiro para evitar erro de FK
       await supabase.from('commercial_events').delete().eq('task_id', id);
       const { error } = await supabase.from('tasks').delete().eq('id', id).eq('user_id', userId);
       if (error) throw error;
       return true;
     } catch (err: any) {
-      throw new Error(err.message || JSON.stringify(err));
+      console.error("Delete task failed:", err);
+      return false;
     }
   },
 
@@ -184,27 +156,26 @@ export const KanbanService = {
       order: col.order || 0
     };
     try {
-      const isLocal = col.id && (col.id.startsWith('local-') || col.id.startsWith('temp-') || col.id.startsWith('err-') || col.id.startsWith('critical-'));
-      if (col.id && !isLocal) {
+      if (col.id && !col.id.includes('local')) {
         const { error } = await supabase.from('kanban_columns').update(payload).eq('id', col.id).eq('user_id', userId);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('kanban_columns').insert([payload]);
         if (error) throw error;
       }
+      return { success: true };
     } catch (err: any) {
-      throw new Error(err.message || JSON.stringify(err));
+      return { success: false, error: err.message };
     }
   },
 
   async deleteColumn(userId: string, id: string) {
-    const isLocal = id.startsWith('local-') || id.startsWith('temp-') || id.startsWith('err-') || id.startsWith('critical-');
-    if (isLocal) return;
+    if (id.includes('local')) return;
     try {
       const { error } = await supabase.from('kanban_columns').delete().eq('id', id).eq('user_id', userId);
       if (error) throw error;
-    } catch (err: any) {
-      throw new Error(err.message || JSON.stringify(err));
+    } catch (err) {
+      console.error("Delete column failed:", err);
     }
   }
 };
