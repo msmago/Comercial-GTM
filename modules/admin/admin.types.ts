@@ -14,6 +14,7 @@ export interface ConsultantPerformance {
   email: string;
   role: UserRole;
   taskCount: number;
+  companyCount: number;
   lastActionAt: string;
   status: 'ACTIVE' | 'INACTIVE';
 }

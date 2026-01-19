@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../modules/admin/admin.store';
 import { 
-  Users, Search, ArrowLeft, Mail, Shield, Activity, Calendar
+  Users, Search, ArrowLeft, Mail, Shield, Activity, Calendar, Building2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -60,18 +60,24 @@ const AdminConsultants = () => {
                </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-8">
-               <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <Activity size={12} className="text-blue-600" /> Ações
+            <div className="grid grid-cols-3 gap-3 mb-8">
+               <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                     <Activity size={10} className="text-blue-600" /> Ações
                   </p>
-                  <p className="text-2xl font-black italic text-slate-950 dark:text-white">{c.taskCount}</p>
+                  <p className="text-xl font-black italic text-slate-950 dark:text-white">{c.taskCount}</p>
                </div>
-               <div className="bg-slate-50 dark:bg-slate-950 p-5 rounded-3xl border border-slate-100 dark:border-slate-800">
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <Calendar size={12} className="text-blue-600" /> Última
+               <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                     <Building2 size={10} className="text-blue-600" /> CRM
                   </p>
-                  <p className="text-[10px] font-black text-slate-950 dark:text-white uppercase leading-tight">
+                  <p className="text-xl font-black italic text-slate-950 dark:text-white">{c.companyCount}</p>
+               </div>
+               <div className="bg-slate-50 dark:bg-slate-950 p-4 rounded-3xl border border-slate-100 dark:border-slate-800 text-center">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
+                     <Calendar size={10} className="text-blue-600" /> Última
+                  </p>
+                  <p className="text-[9px] font-black text-slate-950 dark:text-white uppercase leading-tight">
                     {new Date(c.lastActionAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
                   </p>
                </div>

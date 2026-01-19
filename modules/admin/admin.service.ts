@@ -22,9 +22,11 @@ export const AdminService = {
   async getConsultantsPerformance(): Promise<ConsultantPerformance[]> {
     const { data: users } = await supabase.from('users').select('*');
     const { data: tasks } = await supabase.from('tasks').select('user_id, created_at');
+    const { data: companies } = await supabase.from('companies').select('user_id');
 
     return (users || []).map(u => {
       const userTasks = (tasks || []).filter(t => t.user_id === u.id);
+      const userCompanies = (companies || []).filter(c => c.user_id === u.id);
       const lastTask = userTasks.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
 
       return {
@@ -33,8 +35,9 @@ export const AdminService = {
         email: u.email,
         role: u.role,
         taskCount: userTasks.length,
+        companyCount: userCompanies.length,
         lastActionAt: lastTask?.created_at || u.created_at,
-        status: userTasks.length > 0 ? 'ACTIVE' : 'INACTIVE'
+        status: (userTasks.length > 0 || userCompanies.length > 0) ? 'ACTIVE' : 'INACTIVE'
       };
     });
   },
