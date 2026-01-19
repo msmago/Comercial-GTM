@@ -21,9 +21,9 @@ import LoginPage from './pages/LoginPage';
 import CalendarPage from './pages/CalendarPage';
 import Inventory from './pages/Inventory';
 import Spreadsheets from './pages/Spreadsheets';
-import AIAgent from './pages/AIAgent';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminConsultants from './pages/AdminConsultants';
+import Resources from './pages/Resources';
 
 const ProtectedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
@@ -67,7 +67,7 @@ const App = () => {
                       <Route path="/calendar" element={<ProtectedLayout><CalendarPage /></ProtectedLayout>} />
                       <Route path="/inventory" element={<ProtectedLayout><Inventory /></ProtectedLayout>} />
                       <Route path="/sheets" element={<ProtectedLayout><Spreadsheets /></ProtectedLayout>} />
-                      <Route path="/ai" element={<ProtectedLayout><AIAgent /></ProtectedLayout>} />
+                      <Route path="/resources" element={<ProtectedLayout><Resources /></ProtectedLayout>} />
                       
                       {/* Admin Routes */}
                       <Route path="/admin" element={<ProtectedLayout><AdminDashboard /></ProtectedLayout>} />

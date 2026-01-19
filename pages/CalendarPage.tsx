@@ -4,7 +4,8 @@ import { useCalendar } from '../modules/calendar/calendar.store';
 import { CommercialEvent } from '../modules/calendar/calendar.types';
 import { 
   ChevronLeft, ChevronRight, Plus, 
-  Clock, User, Trash2, Calendar as CalIcon, X, Loader2, MapPin, Edit2
+  Clock, User, Trash2, Calendar as CalIcon, X, Loader2, MapPin, Edit2,
+  Sparkles, Send, Copy, Check, Wand2, BarChart3, AlertCircle, CalendarCheck
 } from 'lucide-react';
 
 const CalendarPage = () => {
@@ -14,6 +15,12 @@ const CalendarPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CommercialEvent | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Estados para o Resumo Local
+  const [showSummary, setShowSummary] = useState(false);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryText, setSummaryText] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay();
@@ -36,6 +43,56 @@ const CalendarPage = () => {
   };
 
   const selectedDayEvents = selectedDay ? getEventsForDay(selectedDay.getDate()) : [];
+
+  // Motor de Síntese Local (Substituindo a IA)
+  const handleGenerateLocalSummary = () => {
+    setSummaryLoading(true);
+    setShowSummary(true);
+
+    setTimeout(() => {
+      const currentMonthEvents = events.filter(e => {
+        const d = new Date(e.date);
+        return d.getUTCMonth() === currentDate.getMonth() && d.getUTCFullYear() === currentDate.getFullYear();
+      });
+
+      const today = new Date();
+      const nextWeekEvents = currentMonthEvents.filter(e => {
+        const d = new Date(e.date);
+        const diff = (d.getTime() - today.getTime()) / (1000 * 3600 * 24);
+        return diff >= 0 && diff <= 7;
+      });
+
+      const total = currentMonthEvents.length;
+      const weekTotal = nextWeekEvents.length;
+      
+      // Lógica de análise de intensidade
+      const busyDays = days.filter(d => getEventsForDay(d).length >= 3);
+      const freeDays = days.filter(d => d >= today.getDate() && getEventsForDay(d).length === 0);
+
+      const report = `
+### RELATÓRIO DE PERFORMANCE GTM - ${monthNames[currentDate.getMonth()].toUpperCase()}
+
+1. VISÃO GERAL DO MÊS
+- Volume Total de Ações: ${total} compromissos agendados.
+- Status: ${total > 15 ? '🔥 Alta Intensidade' : total > 5 ? '⚡ Operação Ativa' : '🧊 Baixa Movimentação'}.
+
+2. FOCO SEMANAL (PRÓXIMOS 7 DIAS)
+- Você possui ${weekTotal} ações críticas mapeadas para esta semana.
+${nextWeekEvents.map(e => `  • [${new Date(e.date).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}] ${e.title}`).join('\n')}
+
+3. ANÁLISE DE CAPACIDADE
+- Dias de Pico: ${busyDays.length > 0 ? busyDays.join(', ') : 'Distribuído'}.
+- Janelas de Prospecção: Existem ${freeDays.length} dias livres para novas abordagens este mês.
+- Sugestão: Focar prospecção ativa nos dias ${freeDays.slice(0, 3).join(', ')}.
+
+4. INSIGHT ESTRATÉGICO
+- Mantenha o follow-up rigoroso nos compromissos de fim de mês para garantir o fechamento da meta trimestral.
+      `;
+
+      setSummaryText(report.trim());
+      setSummaryLoading(false);
+    }, 800);
+  };
 
   const handleOpenModal = (event?: CommercialEvent) => {
     if (event) {
@@ -74,8 +131,6 @@ const CalendarPage = () => {
     if (result.success) {
       setShowModal(false);
       setEditingEvent(null);
-    } else {
-      console.error("Erro ao salvar:", result.error);
     }
   };
 
@@ -93,13 +148,23 @@ const CalendarPage = () => {
               <button onClick={nextMonth} className="p-2.5 hover:bg-white dark:hover:bg-slate-900 rounded-xl text-slate-600 dark:text-slate-400 transition-all shadow-sm"><ChevronRight size={20} /></button>
             </div>
           </div>
-          <button 
-            onClick={() => handleOpenModal()}
-            className="flex items-center gap-3 px-8 py-4 bg-slate-950 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl active:scale-95"
-          >
-            <Plus size={20} />
-            Agendar Evento
-          </button>
+          
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={handleGenerateLocalSummary}
+              className="flex items-center gap-3 px-6 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-xl active:scale-95 group"
+            >
+              <BarChart3 size={18} />
+              Sintetizador
+            </button>
+            <button 
+              onClick={() => handleOpenModal()}
+              className="flex items-center gap-3 px-8 py-4 bg-slate-950 dark:bg-blue-600 hover:bg-slate-900 dark:hover:bg-blue-700 text-white font-black text-[11px] uppercase tracking-[0.2em] rounded-2xl transition-all shadow-xl active:scale-95"
+            >
+              <Plus size={20} />
+              Agendar
+            </button>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-[48px] p-10 border border-slate-200 dark:border-white/5 shadow-2xl relative">
@@ -202,6 +267,78 @@ const CalendarPage = () => {
         </div>
       </div>
 
+      {/* Modal Resumo do Sintetizador (Local) */}
+      {showSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="w-full max-w-2xl bg-white dark:bg-slate-950 rounded-[56px] border border-slate-200 dark:border-white/5 shadow-6xl overflow-hidden relative flex flex-col max-h-[90vh]">
+            <div className="p-10 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-5">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl">
+                  <BarChart3 size={24} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black italic tracking-tighter uppercase text-slate-950 dark:text-white leading-none">Sintetizador GTM</h3>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Análise de Performance Operacional</p>
+                </div>
+              </div>
+              <button onClick={() => setShowSummary(false)} className="p-4 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 rounded-3xl text-slate-600 transition-all"><X size={24} /></button>
+            </div>
+
+            <div className="flex-1 p-12 overflow-y-auto custom-scrollbar">
+              {summaryLoading ? (
+                <div className="h-full flex flex-col items-center justify-center space-y-8 py-20">
+                  <div className="w-20 h-20 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin"></div>
+                  <div className="text-center">
+                    <p className="text-[11px] font-black text-slate-950 dark:text-white uppercase tracking-[0.4em] animate-pulse">Cruzando Dados Locais...</p>
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mt-2">Extraindo métricas do banco de dados</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="prose dark:prose-invert max-w-none">
+                  <div className="flex items-center gap-4 mb-10">
+                    <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Sumário Estratégico</span>
+                    <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800"></div>
+                  </div>
+                  
+                  <div className="space-y-6 text-slate-700 dark:text-slate-300 text-sm leading-relaxed font-bold whitespace-pre-wrap font-mono bg-slate-50 dark:bg-slate-900/50 p-8 rounded-3xl border border-slate-100 dark:border-slate-800">
+                    {summaryText}
+                  </div>
+                  
+                  <div className="mt-8 flex items-center gap-4 p-5 bg-blue-50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+                    <AlertCircle className="text-blue-600" size={20} />
+                    <p className="text-[10px] font-black uppercase tracking-tight text-blue-600">Este relatório foi gerado localmente com base na sua agenda atual.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-10 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                 <CalendarCheck className="text-emerald-500" size={20} />
+                 <p className="text-[10px] font-black uppercase text-slate-500">Pronto para Exportação</p>
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => { navigator.clipboard.writeText(summaryText); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                  className="flex items-center gap-3 px-8 py-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-sm hover:border-blue-500 transition-all"
+                >
+                  {copied ? <Check size={16} className="text-emerald-500" /> : <Copy size={16} />}
+                  {copied ? 'Copiado' : 'Copiar Texto'}
+                </button>
+                <button 
+                  onClick={() => setShowSummary(false)}
+                  className="px-8 py-4 bg-slate-950 dark:bg-blue-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Evento */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-sm">
           <div className="w-full max-w-lg bg-white dark:bg-slate-950 p-10 rounded-[48px] animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-white/5 shadow-2xl">

@@ -4,7 +4,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Kanban as KanbanIcon, 
   Calendar as CalendarIcon, Package, FileSpreadsheet, 
-  BrainCircuit, Star, ChevronRight, LogOut, ShieldCheck
+  Star, ChevronRight, LogOut, ShieldCheck,
+  Link as LinkIcon
 } from 'lucide-react';
 import { useAuth } from '../../modules/auth/auth.store';
 
@@ -46,7 +47,10 @@ const Sidebar = () => {
         <SidebarLink to="/calendar" icon={CalendarIcon} label="Calendário" active={location.pathname === '/calendar'} />
         <SidebarLink to="/inventory" icon={Package} label="Estoque" active={location.pathname === '/inventory'} />
         <SidebarLink to="/sheets" icon={FileSpreadsheet} label="Planilhas" active={location.pathname === '/sheets'} />
-        <SidebarLink to="/ai" icon={BrainCircuit} label="Analista IA" active={location.pathname === '/ai'} />
+        
+        <div className="h-px bg-slate-100 dark:bg-slate-900 my-4 mx-2" />
+        <div className="px-5 mb-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.3em]">Utilidades</div>
+        <SidebarLink to="/resources" icon={LinkIcon} label="Atalhos Críticos" active={location.pathname === '/resources'} />
 
         {user?.role === 'ADMIN' && (
           <>
